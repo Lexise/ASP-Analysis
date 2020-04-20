@@ -1,7 +1,5 @@
 # ASP-Analysis
-
-With data mining algorithms (KMeans, DBscan clustering), the system analyses the whole space of answer sets, identifies the
-inner patterns, and helps users to find the interesting attributes for further investigation.
+A Dash application that uses data mining algorithms (KMeans, DBscan clustering) to analyses the whole space of answer sets, identifies the inner patterns, and helps users to find the interesting attributes for further investigation.
 
 ## Prerequisites
 
@@ -51,8 +49,6 @@ python app.py
 ## Screenshots
 The following are screenshots for the app in this repo:
 
-
- licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
 ## Acknowledgments
 
