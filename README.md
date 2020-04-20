@@ -48,10 +48,11 @@ python app.py
 
 ## Screenshots
 The following are screenshots for the app in this repo:
-![Image of main interface](https://github.com/Lexise/ASP-Analysis/Screenshots/tab_cluster_scatter.png)
-![Image of Attribute anaysis](https://github.com/Lexise/ASP-Analysis/tree/master/Screenshots/attribute_distribution_analysis.png)
-![Image of Attribute anaysis](https://github.com/Lexise/ASP-Analysis/tree/master/Screenshots/attribute_selection.png)
-![Image of correlation matrix](https://github.com/Lexise/ASP-Analysis/tree/master/Screenshots/correlation_matrix.png)
+
+![main interface](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/tab_cluster_scatter.png)
+![Attribute anaysis1](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/attribute_selection.png)
+![Attribute anaysis1](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/attribute_distribution_analysis.png)
+![correlation matrix](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/correlation_matrix.png)
 
 ## Acknowledgments
 
