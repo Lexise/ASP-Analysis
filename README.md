@@ -38,6 +38,14 @@ Run the app
 ```
 python app.py
 ```
+### Upload data form
+
+If you want to process your own data, it should be named in the way that end with ".apx" for arguments ans ".EE-PR" for answer sets.
+For example:
+
+>[metro-st-louis_20130916_1522.gml.80.apx](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/metro-st-louis_20130916_1522.gml.80.apx)
+
+>[metro-st-louis_20130916_1522.gml.80.EE-PR](https://github.com/Lexise/ASP-Analysis/blob/master/Screenshots/metro-st-louis_20130916_1522.gml.80.EE-PR)
 
 
 
@@ -56,5 +64,6 @@ The following are screenshots for the app in this repo:
 
 ## Acknowledgments
 
-* Inspired by gallery of dash plotly
+* Inspiration
 
+* Academic usage
