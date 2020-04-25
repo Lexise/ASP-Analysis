@@ -95,8 +95,8 @@ def process_data( attribute_file, answer_sets):
         correlation_matrix = temp.corr()
 
         #find features:
-        cluster_feature_db=find_feature_cluster(itemlist,processed_data,cluster_algorithm,"db")
-        cluster_feature_km=find_feature_cluster(itemlist,processed_data,cluster_algorithm,"km")
+        cluster_feature_db=find_feature_cluster(itemlist,processed_data,"db")
+        cluster_feature_km=find_feature_cluster(itemlist,processed_data,"km")
         group_feature=find_feature_group(itemlist,processed_data)
         #
         #
