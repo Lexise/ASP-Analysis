@@ -102,7 +102,6 @@ df = pd.read_pickle('long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
 report_cluster_km=pd.read_pickle("km_long-island-railroad_cluster_report.pkl")
 report_cluster_db=pd.read_pickle("db_long-island-railroad_cluster_report.pkl")
 
-print(set(df.km_cluster_label))
 report_groups=pd.read_pickle("long-island-railroad_groups_report.pkl")
 
 correlation_matrix=pd.read_pickle("answer2_correlation_matrix.pkl")
