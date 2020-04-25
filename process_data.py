@@ -61,8 +61,8 @@ def process_data( attribute_file, answer_sets):
         processed_data.loc[stable_idx,"groups"]=["stable"]*len(stable_idx)
         processed_data.loc[~processed_data.index.isin(stable_idx),"groups"]=["prefer-"]*(len(processed_data)-len(stable_idx))
         processed_data=clustering_dbscan(processed_data)
-        processed_data=dimensional_reduction_tsne(processed_data)
-
+        processed_data=dimensional_reduction(processed_data)
+        processed_data= clustering_km(processed_data)
         frequency = []
         for attribute in itemlist:
             count = 0
@@ -95,48 +95,45 @@ def process_data( attribute_file, answer_sets):
         correlation_matrix = temp.corr()
 
         #find features:
-        cluster_feature=find_feature_cluster(itemlist,processed_data)
+        cluster_feature_db=find_feature_cluster(itemlist,processed_data,cluster_algorithm,"db")
+        cluster_feature_km=find_feature_cluster(itemlist,processed_data,cluster_algorithm,"km")
         group_feature=find_feature_group(itemlist,processed_data)
         #
         #
         #
-        return processed_data,bar_data,correlation_matrix,cluster_feature,group_feature
+        return processed_data,bar_data,correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature
 
 
-def clustering_km( data, cluster_num):
+def clustering_km( data, cluster_num=2):
     km = KMeans(n_clusters=cluster_num, precompute_distances='auto').fit_predict(list(data['in']))
-    data['cluster_label'] = km
+    data['km_cluster_label'] = km
     return data
 
 def clustering_dbscan( data, eps=1.7, minpoint=7):
     c = DBSCAN(eps=eps, min_samples=minpoint).fit_predict(list(data['in']))
-    data['cluster_label'] = c
+    data['db_cluster_label'] = c
     return  data
 
 
-def dimensional_reduction_tsne(data) -> pd.DataFrame:
+def dimensional_reduction(data) -> pd.DataFrame:
     result2 = TSNE(n_components=2).fit_transform(list(data['in'])).T
-    data['position_x'] = result2[0]
-    data['position_y'] = result2[1]
-    return data
+    data['tsne_position_x'] = result2[0]
+    data['tsne_position_y'] = result2[1]
 
-
-
-def dimensional_reduction_svd(data) -> pd.DataFrame:
     svd = TruncatedSVD(n_components=2, n_iter=7)
 
     result = svd.fit_transform(list(data['in'])).T
 
-    # result2= TSNE(n_components=2).fit_transform(list(data['in'])).T
-    data['position_x'] = result[0]
-    data['position_y'] = result[1]
+    data['svd_position_x'] = result[0]
+    data['svd_position_y'] = result[1]
     return data
 
-def find_feature_cluster(itemlist, data):  #clustered data
-    clusters = list(set(data.cluster_label))
+def find_feature_cluster(itemlist, data, cluster_algorithm):  #clustered data
+    cluster_label=cluster_algorithm+"_cluster_label"
+    clusters = list(set(data[cluster_label]))
     characters = []
     for cluster in clusters:
-        current_cluster = data[data.cluster_label == cluster]
+        current_cluster = data[data[cluster_label] == cluster]
         all_lists = []
         for indx, row in current_cluster.iterrows():
             content = row['arg']
@@ -150,7 +147,7 @@ def find_feature_cluster(itemlist, data):  #clustered data
         flag = 1
         index = differences.index(element)
         current_cluster = clusters[index]
-        other_cluster_data = data[data.cluster_label != current_cluster]
+        other_cluster_data = data[data[cluster_label] != current_cluster]
         for idx, raw in other_cluster_data.iterrows():
             if set(element).issubset(set(raw.arg)):
                 flag = 0
