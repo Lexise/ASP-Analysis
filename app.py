@@ -606,7 +606,6 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
         group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+"_cluster_feature.pkl")
     else:
-        if content=="" or content==None: #have not load
             print("no content")
             processed_data=df
             group_table = report_groups
@@ -614,12 +613,9 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
                 cluster_table = report_cluster_km
             else:
                 cluster_table = report_cluster_db
-        else:
-            print("processed with return value")
-            print("signal:",content)
-            processed_data=pd.DataFrame.from_dict(content)
-            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
-            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+ "_cluster_feature.pkl")
+            # processed_data=pd.DataFrame.from_dict(content)
+            # group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
+            # cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+ "_cluster_feature.pkl")
     if reduction1=="svd":
         x_axe="svd_position_x"
         y_axe="svd_position_y"
