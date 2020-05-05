@@ -2,5 +2,4 @@ pandas==0.24.2
 dash==1.0.0
 gunicorn==19.9.0
 flask-caching==1.8.0
-sklearn==0.22.2
-
+sklearn==0.0
