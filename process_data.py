@@ -12,8 +12,8 @@ def change_to_hotpot(answer, item):
           returnlist[item.index(ele)]=1
       return returnlist
 
-def process_data( attribute_file, answer_sets):
-        with open(attribute_file, 'r') as file:
+def process_data( arguments_file, answer_sets,eps, minpts, n_cluster):
+        with open(arguments_file, 'r') as file:
             question = file.read()
         itemlist = [int(s) for s in re.findall(r"arg[(]a(.*?)[)].", question)]
         itemlist.sort()
@@ -60,20 +60,29 @@ def process_data( attribute_file, answer_sets):
             stable_idx.append(index)
         processed_data.loc[stable_idx,"groups"]=["stable"]*len(stable_idx)
         processed_data.loc[~processed_data.index.isin(stable_idx),"groups"]=["prefer-"]*(len(processed_data)-len(stable_idx))
-        processed_data=clustering_dbscan(processed_data)
+        if eps!= ""  and eps != "Eps":
+            processed_data=clustering_dbscan(processed_data,float(eps), int(minpts))
+        else:
+            processed_data=clustering_dbscan(processed_data)
+
+
         processed_data=dimensional_reduction(processed_data)
-        processed_data= clustering_km(processed_data)
+        if n_cluster !="" and n_cluster !="Cluster Num":
+            processed_data= clustering_km(processed_data,int(n_cluster))
+        else:
+            processed_data= clustering_km(processed_data)
+
         frequency = []
-        for attribute in itemlist:
+        for argument in itemlist:
             count = 0
             for indx, row in processed_data.iterrows():
-                if attribute in row.arg:
+                if argument in row.arg:
                     count += 1
             frequency.append(count),
         rate = [x / len(processed_data) * 100 for x in frequency]
         bar_data = pd.DataFrame({
             # "index":itemlist,
-            "attribute": [str(x)+"attribute" for x in itemlist],
+            "argument": [str(x)+"argument" for x in itemlist],
             "frequency": frequency,
             "rate": rate
         })
@@ -158,22 +167,22 @@ def find_feature_cluster(itemlist, data, cluster_algorithm):  #clustered data
             print("{} is character for cluster {}".format(element, current_cluster))
     sum_diff = pd.DataFrame({
         "cluster": clusters,
-        "attribute_combination_feature": ["(" + ", ".join(str(x) for x in a) + ")" for a in differences],
+        "argument_combination_feature": ["(" + ", ".join(str(x) for x in a) + ")" for a in differences],
     })
     return sum_diff
 
 def find_feature_group(itemlist,data):
     record_character = dict({
-        "attribute": [],
+        "argument": [],
         "groups": [],
     })
-    for attribute in itemlist:
+    for argument in itemlist:
         count = []
         for idx, raw in data.iterrows():
-            if attribute in raw.arg:
+            if argument in raw.arg:
                 count.append(raw.groups)
         if len(set(count)) == 1:
-            record_character["attribute"].append(attribute)
+            record_character["argument"].append(argument)
             record_character["groups"].append(count[0])
     if len(set(record_character["groups"]))==1:
         return  pd.DataFrame({})
@@ -182,11 +191,11 @@ def find_feature_group(itemlist,data):
     temp=pd.DataFrame(record_character)
     for idx, raw in temp.iterrows():
         if raw.groups == "stable":
-            stable.append(raw.attribute)
+            stable.append(raw.argument)
         else:
-            prefer.append(raw.attribute)
+            prefer.append(raw.argument)
     group_character = pd.DataFrame({
         "groups": ["stable", "prefer"],
-        "attribute_feature": [", ".join(str(x) for x in stable), ', '.join(str(x) for x in prefer)]
+        "argument_feature": [", ".join(str(x) for x in stable), ', '.join(str(x) for x in prefer)]
     })
     return group_character

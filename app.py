@@ -26,7 +26,7 @@ import pathlib
 APP_PATH = str(pathlib.Path(__file__).parent.resolve())   #include download
 UPLOAD_DIRECTORY = APP_PATH+"/data/app_uploaded_files/"
 PROCESSED_DIRECTORY=APP_PATH + "/data/processed/"
-
+FILE_LIST=""
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
     print("created")
@@ -42,7 +42,7 @@ cache_config = {
 }
 
 # Empty cache directory before running the app
-folder = os.path.join(APP_PATH, "data")
+folder = os.path.join(APP_PATH, "data/cache/")
 for the_file in os.listdir(folder):
     file_path = os.path.join(folder, the_file)
     try:
@@ -54,7 +54,10 @@ for the_file in os.listdir(folder):
 @server.route("/download/<path:path>")
 def download(path):
     """Serve a file from the upload directory."""
-    return send_from_directory(APP_PATH, path, as_attachment=True)
+    if os.path.exists(UPLOAD_DIRECTORY+path):
+        return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
+    else:
+        return send_from_directory(PROCESSED_DIRECTORY, path, as_attachment=True)
 
 
 app.config.suppress_callback_exceptions = True
@@ -96,8 +99,7 @@ layout = dict(
 # print(test)
 
 
-dataset_all=pd.read_pickle('long-island-railroad_attribute_frequency.pkl')
-
+dataset_all=pd.read_pickle('long-island-railroad_argument_frequency.pkl')
 df = pd.read_pickle('long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
 report_cluster_km=pd.read_pickle("km_long-island-railroad_cluster_report.pkl")
 report_cluster_db=pd.read_pickle("db_long-island-railroad_cluster_report.pkl")
@@ -109,43 +111,67 @@ correlation_matrix=pd.read_pickle("answer2_correlation_matrix.pkl")
 cache = Cache()
 cache.init_app(app.server, config=cache_config)
 
-TIMEOUT = 60
+TIMEOUT = 120
 
-attribute_analysis=html.Div([
+def uploaded_files( directory ):
+    """List the files in the upload directory."""
+    files = []
+    for filename in os.listdir(directory):
+        path = os.path.join(directory, filename)
+        if os.path.isfile(path):
+            files.append(filename)
+    return files
+
+def file_download_link(filename):
+    """Create a Plotly Dash 'A' element that downloads a file from the app."""
+    print("file name",filename)
+    location = "/download/{}".format(urlquote(filename))
+    return html.A(filename, href=location)
+
+
+def get_file_name(dir):
+    files = uploaded_files(dir)
+    if len(files) == 0:
+        return [html.Li("")]
+    else:
+        return [html.Li(file_download_link(filename)) for filename in files]
+
+
+argument_analysis=html.Div([
 
     dcc.Link(html.Button('back'), href='/'),
     html.Div(
         [
             html.Div(
                 [
-                    html.H4(
-                        "select range in histogram:",
-                        className="control_label",
-                    ),
-                    dcc.RangeSlider(
-                        id='my-range-slider',
-                        min=0,
-                        max=len(dataset_all),
-                        step=1,
-                        value=[5, 25]
-                    ),
+                    # html.H4(
+                    #     "select range in histogram:",
+                    #     className="control_label",
+                    # ),
+                    # dcc.RangeSlider(
+                    #     id='my-range-slider',
+                    #     min=0,
+                    #     max=len(dataset_all),
+                    #     step=1,
+                    #     value=[5, int(0.5*len(dataset_all))]
+                    # ),
                     html.P("Presented data:", style={"font-weight": "bold"},className="control_label"),
                     dcc.RadioItems(
                         id="data_present_selector",
                         options=[
                             {"label": "All ", "value": "all"},
-                            {"label": "Interested", "value": "interested"},
+                            {"label": "Interesting", "value": "interesting"},
                         ],
-                        value="interested",
+                        value="all",
                         labelStyle={"display": "inline-block"},
                         className="dcc_control",
                     ),
 
                     dcc.Checklist(
                         id="sort_selector",
-                        options=[{"label": "descending sort", "value": "decreased"}],
+                        options=[{"label": "descending order", "value": "decreased"}],
                         className="dcc_control",
-                        value=[],
+                        value=["decreased"],
                     ),
 
 
@@ -164,7 +190,7 @@ attribute_analysis=html.Div([
 
                     html.Div(
                         [html.H5(id="selected_cluster")],
-                        id="selected attribute",
+                        id="selected argument",
                         className="dcc_control",
                         # className="mini_container",
                     ),
@@ -219,7 +245,15 @@ attribute_analysis=html.Div([
                 className="pretty_container four columns",
                 id="cross-filter-options",
             ),
-            html.Div([dcc.Graph(id="bar_chart")],
+            html.Div([dcc.Graph(id="bar_chart"),
+                      dcc.RangeSlider(
+                          id='my-range-slider',
+                          min=0,
+                          max=len(dataset_all),
+                          step=1,
+                          value=[5, int(0.5 * len(dataset_all))]
+                      ),
+                      ],
                      className="pretty_container seven columns",
                      style={'width': '64%'}),
 
@@ -228,11 +262,20 @@ attribute_analysis=html.Div([
         className="row flex-display",
     ),
     html.Div([
+        dcc.Loading(
+            id="loading-1",
+            type="default",
+            children=html.Div(id="basic-interactions"),
+        )
+    ],
+    className="row",
+    ),
+    html.Div([
         html.Div([
         dcc.Graph(
             id='basic-interactions'),
         dcc.RadioItems(
-                id="attribute-dimensional-reduction",
+                id="argument-dimensional-reduction",
                 options=[
                     {"label": "Tsne ", "value": "tsne"},
                     {"label": "SVD", "value": "svd"},
@@ -249,6 +292,7 @@ attribute_analysis=html.Div([
             [dcc.Graph(id="pie_graph")],
             className="pretty_container five columns",
         ),
+
 
 
     ],
@@ -286,11 +330,11 @@ main_page =     html.Div([
                 html.Div(
                     [
                         html.H3(
-                            "Answer Sets Analysis",
+                            "NEVA",
                             style={"margin-bottom": "10px"},
                         ),
                         html.H5(
-                            "Feature Overview", style={"margin-top": "0px"}
+                            "Answer Set Analysis", style={"margin-top": "0px"}
                         ),
                     ],
                     className="one-half column",
@@ -447,14 +491,37 @@ main_page =     html.Div([
 
 
 
-        dcc.Link(html.Button('Attribute Analysis',style={'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-attribute'),
+        dcc.Link(html.Button('Argument Analysis',style={'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
         dcc.Link(html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-correlation'),
         html.Hr(),
-        dcc.Upload(html.Button('Upload File'), id="upload-data", ),
-        html.Hr(),
-        html.Ul(id="file-list",children=""),
+        html.Div([
 
-    ]),
+            dcc.Upload(html.Button(children='Upload File'), id="upload-data",style={'width': '13%','marginRight': '2.5%'} ),
+            dcc.Input(id='eps', type='text', value='Eps',style={'width': '10%','marginRight': '0.5%','marginLeft': '4%'}),
+            dcc.Input(id='minpts', type='text', value='MinPts',style={'width': '10%','marginRight': '0.5%'}),
+            dcc.Input(id='cluster_num', type='text', value='Cluster Num',style={'width': '11%','marginRight': '0.5%'}),
+            html.Button(id='submit-button-state', n_clicks=0, children='Submit',style={'width': '9%','font-size':'13px',"color":"#FFFF","backgroundColor":"#2F8FD2"}),
+        ],
+        id="upload_block",
+        className="row flex-display"),
+
+        html.Br(),
+        html.Div([
+            html.Div([
+                html.P("Upload"),
+                html.Ul(id="file-list", children=get_file_name(UPLOAD_DIRECTORY))
+            ],
+                className="pretty_container seven columns"),
+
+            html.Div([
+                html.P("Processed"),
+                html.Ul(id="processed-list", children=get_file_name(PROCESSED_DIRECTORY))
+            ],
+                className="pretty_container seven columns")
+        ],
+            className="row flex-display")
+
+    ])
 
 
 app.layout = html.Div([
@@ -465,17 +532,17 @@ app.layout = html.Div([
     # hidden signal value
     #html.Div(id='signal', style={'display': 'none'}),
     dcc.Loading(
-        id="loading-1",
+        id="loading-2",
         type="default",
         children=html.Div(id="signal")
     ),
+
 ],
     id="mainContainer",
     style={"display": "flex", "flex-direction": "column"},
 )
 
-@cache.memoize()
-def global_store():
+def global_store(eps, minpts, n_cluster):
     # simulate expensive query
     files = uploaded_files(UPLOAD_DIRECTORY)
 
@@ -495,7 +562,7 @@ def global_store():
                 ])
         start_time = time.time()
         print("start process")
-        processed_data, bar_data, correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature = process_data(UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+answer)
+        processed_data, bar_data, correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature = process_data(UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+answer,eps, minpts, n_cluster)
         group_feature.to_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_feature_db.to_pickle(PROCESSED_DIRECTORY + "db_cluster_feature.pkl")
         cluster_feature_km.to_pickle(PROCESSED_DIRECTORY + "km_cluster_feature.pkl")
@@ -508,23 +575,28 @@ def global_store():
     else:
         return ""
 
-@app.callback(Output('signal', 'figure'), [Input("file-list", "children")])
-def compute_value(content):
+@app.callback(Output('signal', 'figure'), [Input('submit-button-state', 'n_clicks')],
+              [State('eps', 'value'), State('minpts', 'value'), State('cluster_num', 'value')])
+def compute_value( n_clicks, eps, minpts, n_cluster):
     # compute value and send a signal when done
-
+    #print("file-list signal",content)
     if len(os.listdir(UPLOAD_DIRECTORY)) == 0:
         print("return no content")
         return ""   #haven't upload data
     else:
         if len(os.listdir(PROCESSED_DIRECTORY)) == 0:
             print("Directory is empty")
-            processed_data = global_store()
-            return processed_data
+            if int(n_clicks)>0:
+                processed_data = global_store(eps, minpts, n_cluster)
+                return processed_data
+            else:
+                return ""
         else:
             print("Directory is not empty")
             return False  #already  process, no need to pass data again
     # global_store(value)
     # return value
+
 
 
 
@@ -538,29 +610,23 @@ def save_file(name, content):
         fp.write(base64.decodebytes(data))
 
 
-def uploaded_files( directory ):
-    """List the files in the upload directory."""
-    files = []
-    for filename in os.listdir(directory):
-        path = os.path.join(directory, filename)
-        if os.path.isfile(path):
-            files.append(filename)
-    return files
 
-
-def file_download_link(filename):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
-    location = "/download/{}".format(urlquote(filename))
-    return html.A(filename, href=location)
+@app.callback(
+    Output("processed-list", "children"),
+    [ Input('signal', 'figure')],
+)
+def get_process_list(children):
+    print("processs children",get_file_name(PROCESSED_DIRECTORY))
+    return get_file_name(PROCESSED_DIRECTORY)
 
 
 @app.callback(
     Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents")],
+    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input('signal', 'figure')],
 )
-def update_output(uploaded_filenames, uploaded_file_contents):
+def update_output(uploaded_filenames, uploaded_file_contents, children):
     """Save uploaded files and regenerate the file list."""
-
+    print("file list children",children)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
             save_file(name, data)
@@ -569,10 +635,8 @@ def update_output(uploaded_filenames, uploaded_file_contents):
     if len(files) == 0:
         return [html.Li("No files yet!")]
     else:
-        UPDATE=1
-        cache.clear()
-        return [html.Li(file_download_link(filename)) for filename in files]
-
+        FILE_LIST=[html.Li(file_download_link(filename)) for filename in files]
+        return FILE_LIST
 
 # Create callbacks
 app.clientside_callback(
@@ -585,8 +649,8 @@ app.clientside_callback(
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/page-attribute':
-        return attribute_analysis
+    if pathname == '/page-argument':
+        return argument_analysis
     elif pathname == '/page-correlation':
         return correlation_page
     else:
@@ -596,17 +660,13 @@ def display_page(pathname):
 @app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
               [ Input('signal', 'figure'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
                 Input("clustering-method", "value"),Input("clustering-method-table", "value") ])
-@cache.memoize()
+@cache.memoize(TIMEOUT)
 def generate_tabs( content, reduction1, reduction2, method, table_method):#processed_data, table1_data,table2_data ):
-    print("content:",content)
-    print("reduction1:", reduction1)
     if  content==False:#load and processed
-        print("content: False")
         processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "processed_data.pkl")
         group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+"_cluster_feature.pkl")
     else:
-            print("no content")
             processed_data=df
             group_table = report_groups
             if table_method=="km":
@@ -648,7 +708,6 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
     else:
         x_axe = "tsne_position_x"
         y_axe = "tsne_position_y"
-    print("processed_data x axe:",processed_data[x_axe])
     figure2 = {
         'data': [
             {
@@ -680,7 +739,6 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
                                'fontWeight': 'bold'
                            },
             style_cell = {
-                             'font_family': 'cursive',
                              'font_size': '20px',
                              'text_align': 'center'
                          },
@@ -700,7 +758,6 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
                                'fontWeight': 'bold'
                            },
             style_cell = {
-                             'font_family': 'cursive',
                              'font_size': '20px',
                              'text_align': 'center'
                          },
@@ -714,13 +771,12 @@ def generate_tabs( content, reduction1, reduction2, method, table_method):#proce
     [Output("bar_chart", "figure"),Output("my-range-slider","figure")],
     [Input("data_present_selector", "value"),Input("my-range-slider", "value"),Input("sort_selector", "value")],
     )
-@cache.memoize()
+@cache.memoize(TIMEOUT)
 def make_bar_figure(present_data, valuelist,sort_state):
     if len(os.listdir(PROCESSED_DIRECTORY))!=0:
         dataset_bar=pd.read_pickle(PROCESSED_DIRECTORY+"bar_data.pkl")
     else:
         dataset_bar=dataset_all
-        print("bar old data")
     figure=dict()
     slider=dict(
         min = 0,
@@ -733,7 +789,6 @@ def make_bar_figure(present_data, valuelist,sort_state):
            temp=dataset_bar.sort_values(by=['frequency'],ascending=False, inplace=False)
            figure= set_bar_figure(temp, valuelist)
        else:
-           print("no reaction")
            figure= set_bar_figure(dataset_bar, valuelist)
     else:
        dataset=dataset_bar[~dataset_bar.rate.isin([0,100])]
@@ -747,15 +802,15 @@ def make_bar_figure(present_data, valuelist,sort_state):
     return figure,slider
 
 
-def set_bar_figure(attribute_data, valuelist):
+def set_bar_figure(argument_data, valuelist):
     layout_count = copy.deepcopy(layout)
     select_idx=range(valuelist[0],valuelist[1])
-    selected=attribute_data.iloc[select_idx]
+    selected=argument_data.iloc[select_idx]
     selected["order"]=range(len(selected))
 
     data = [dict(
             type="bar",
-            x=list(selected["attribute"]),
+            x=list(selected["argument"]),
             y=list(selected["rate"]),
             hovertext={"fontsize":20},
             #hovertext=["attribute:{arg},rate:{percent}".format(arg=row.attribute,percent=row.rate) for index,row in selected.iterrows()],
@@ -763,7 +818,7 @@ def set_bar_figure(attribute_data, valuelist):
         )]
 
 
-    layout_count["title"] = "Rate/Attribute"
+    layout_count["title"] = "Rate/Argument"
 
     layout_count["dragmode"] = "select"
     layout_count["showlegend"] = False
@@ -781,7 +836,8 @@ def set_bar_figure(attribute_data, valuelist):
 
 
 @app.callback(
-    [Output("selected_cluster","children"), Output('stable', 'children'), Output('prefer', 'children'),Output('complete', 'children'),Output("pie_graph", "figure")],
+    [Output("selected_cluster","children"), Output('stable', 'children'), Output('prefer', 'children'),
+     Output('complete', 'children'),Output("pie_graph", "figure")],
     [Input('bar_chart', 'clickData') ,Input("clustering-method","value")])
 
 def update_cluster_rate(clickData, cluster_method):
@@ -789,20 +845,19 @@ def update_cluster_rate(clickData, cluster_method):
         process_data=pd.read_pickle(PROCESSED_DIRECTORY+"processed_data.pkl")
     else:
         process_data=df
-        print("pie old data")
     layout_pie = copy.deepcopy(layout)
-    layout_pie["title"] = "Cluster Summery"
+    layout_pie["title"] = "Cluster Summary"
     if clickData is None:
-        return "Selected Attribute: None","","","",dict(data=None, layout=layout_pie),
+        return "Selected Argument: None","","","",dict(data=None, layout=layout_pie),
     temp=clickData["points"][0]
-    attributes=int(re.search(r'\d+', temp["x"]).group())
+    arguments=int(re.search(r'\d+', temp["x"]).group())
     selected=[]
-    result0= "Selected Attribute:{}  \n".format(attributes)
+    result0= "Selected Argument:{}  \n".format(arguments)
     for index, row in process_data.iterrows():
-        if attributes in row.arg:
+        if arguments in row.arg:
             selected.append(index)
     if len(selected) == 0:
-        return "No data has this attribute","","","",dict(data=None, layout=layout_pie),
+        return "No data has this argument","","","",dict(data=None, layout=layout_pie),
     data = process_data.loc[selected]
     result=""
     cluster_label=cluster_method+"_cluster_label"
@@ -842,8 +897,7 @@ def update_cluster_rate(clickData, cluster_method):
             # domain={"x": [0, 0.45], "y": [0.2, 0.8]},
         )
     ]
-    layout_pie["title"] = "Cluster Summery"
-    layout_pie["font"] = dict(color="#777777")
+    layout_pie["title"] = "Cluster Summary"
     layout_pie["legend"] = dict(
         font=dict(color="#CCCCCC", size="10"), orientation="h", bgcolor="rgba(0,0,0,0)"
     )
@@ -854,14 +908,13 @@ def update_cluster_rate(clickData, cluster_method):
     for group in set(data.groups):
         num = len(data[data.groups == group])
         result2 = result2 + "{} % belong to group {}. ".format(num / len(data) * 100, group)
-    print(result2)
 
     return result0,stable,prefer,complete,figure
 
 
 @app.callback(
     Output('basic-interactions', 'figure'),
-    [Input('bar_chart', 'clickData'), Input("attribute-dimensional-reduction","value"), Input("clustering-method","value")])
+    [Input('bar_chart', 'clickData'), Input("argument-dimensional-reduction","value"), Input("clustering-method","value")])
 
 def update_graph(clickData, dimensional_reduction, cluster_method="db"):
     if len(os.listdir(PROCESSED_DIRECTORY))!=0:
@@ -869,7 +922,7 @@ def update_graph(clickData, dimensional_reduction, cluster_method="db"):
     else:
         process_data=df
     layout_scatter = copy.deepcopy(layout)
-    layout_scatter["title"]="Distribution of Select Attribute"
+    layout_scatter["title"]="Distribution of Selected Argument"
     layout_scatter["clickmode"]= 'event+select'
     if clickData is None:
         return {
@@ -878,11 +931,10 @@ def update_graph(clickData, dimensional_reduction, cluster_method="db"):
         }
     temp=clickData["points"][0]
     cluster_label=cluster_method +"_cluster_label"
-    attributes=int(re.search(r'\d+', temp["x"]).group())
-    print("cluster_label:" ,cluster_label)
+    arguments=int(re.search(r'\d+', temp["x"]).group())
     selected=[]
     for index, row in process_data.iterrows():
-        if attributes in row.arg:
+        if arguments in row.arg:
             selected.append(index)
     data=process_data.loc[selected]
     unselected_data=process_data[~process_data.index.isin(selected)]
@@ -943,7 +995,7 @@ def displayClick(btn1):
                         "automargin":True,
                         }
 
-    if btn1 > 0:
+    if btn1%2:
         distances = np.sqrt((1 - data_correlation) / 2)
         ordered_dist_mat, res_order, res_linkage = compute_serial_matrix(distances.values, method='single')
         new_order = [data_correlation.index[i] for i in res_order]
