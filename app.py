@@ -3,7 +3,7 @@ import re
 import time
 import base64
 import dash_core_components as dcc
-# import dash_reusable_components as drc
+import dash_bootstrap_components as dbc
 import dash_html_components as html
 import pandas as pd
 import dash_table
@@ -12,11 +12,12 @@ import json
 from control import WELL_COLOR_new
 import dash_table
 import os
+import flask
 from flask_caching import Cache
 from flask import Flask, send_from_directory
 from clustering_correlation import compute_serial_matrix
 import numpy as np
-from process_data import  process_data
+from process_data import  process_data,clean_folder
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 import copy
 from dash.dependencies import Input, Output, State, ClientsideFunction
@@ -26,6 +27,7 @@ import pathlib
 APP_PATH = str(pathlib.Path(__file__).parent.resolve())   #include download
 UPLOAD_DIRECTORY = APP_PATH+"/data/app_uploaded_files/"
 PROCESSED_DIRECTORY=APP_PATH + "/data/processed/"
+DEFAULT_DATA=APP_PATH + "/data/default_data/"
 FILE_LIST=""
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
@@ -42,23 +44,25 @@ cache_config = {
 }
 
 # Empty cache directory before running the app
-folder = os.path.join(APP_PATH, "data/cache/")
-for the_file in os.listdir(folder):
-    file_path = os.path.join(folder, the_file)
-    try:
-        if os.path.isfile(file_path):
-            os.unlink(file_path)
-    except Exception as e:
-        print(e)
+clean_folder(os.path.join(APP_PATH, "data/cache/"))
+# folder = os.path.join(APP_PATH, "data/cache/")
+# for the_file in os.listdir(folder):
+#     file_path = os.path.join(folder, the_file)
+#     try:
+#         if os.path.isfile(file_path):
+#             os.unlink(file_path)
+#     except Exception as e:
+#         print(e)
 
 @server.route("/download/<path:path>")
 def download(path):
     """Serve a file from the upload directory."""
     if os.path.exists(UPLOAD_DIRECTORY+path):
         return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
-    else:
+    elif os.path.exists(PROCESSED_DIRECTORY+path):
         return send_from_directory(PROCESSED_DIRECTORY, path, as_attachment=True)
-
+    else:
+        return send_from_directory(DEFAULT_DATA, path, as_attachment=True)
 
 app.config.suppress_callback_exceptions = True
 mapbox_access_token = "pk.eyJ1IjoiamFja2x1byIsImEiOiJjajNlcnh3MzEwMHZtMzNueGw3NWw5ZXF5In0.fk8k06T96Ml9CLGgKmk81w"
@@ -124,7 +128,6 @@ def uploaded_files( directory ):
 
 def file_download_link(filename):
     """Create a Plotly Dash 'A' element that downloads a file from the app."""
-    print("file name",filename)
     location = "/download/{}".format(urlquote(filename))
     return html.A(filename, href=location)
 
@@ -326,26 +329,58 @@ main_page =     html.Div([
     html.Div(id="output-clientside"),
     html.Div(
         [
-
                 html.Div(
                     [
-                        html.H3(
+                        html.A(
+                            html.Button("Get Default Data", id="get_default_data"),
+                            href="https://github.com/Lexise/ASP-Analysis/tree/master/data/default_data",
+                        )
+                    ],
+                    #className="one-fifth column",
+                    style={'width': '15%', 'textAlign': 'left'},
+                    id="download_default",
+                ),
+                html.Div(
+                    [
+                        html.H2(
                             "NEVA",
-                            style={"margin-bottom": "10px"},
+                            style={"margin-bottom": "10px",'fontWeight': 'bold'},
                         ),
                         html.H5(
-                            "Answer Set Analysis", style={"margin-top": "0px"}
+                            "Extension Visualization for Argumentation Frameworks", style={"margin-top": "0px"}
                         ),
+
+
+
                     ],
-                    className="one-half column",
+
+                    #className="one-half column",
                     id="title",
                     style={'width': '100%', 'textAlign': 'center'}
-                )
+                ),
+                html.Div(
+                    [
+
+                        dcc.Upload([html.Button("View Processed Data" ,id="view_button")],id="view-processed-button"),
+
+                        dcc.ConfirmDialog(
+                            id='confirm',
+                            message='finish uploading?',
+                        ),
+                        html.Div(id='hidden-div', style={'display':'none'})
+                        #html.A('Refresh', href='/')
+                    ],
+                    #className="one-fifth column",
+                    style={'width': '15%', 'textAlign': 'right'},
+                    id="button",
+                ),
+
+
 
         ],
         id="header",
         className="row flex-display",
-        style={"margin-bottom": "35px"},
+        style={"margin-bottom": "25px"},
         ),
 
 
@@ -498,8 +533,11 @@ main_page =     html.Div([
 
             dcc.Upload(html.Button(children='Upload File'), id="upload-data",style={'width': '13%','marginRight': '2.5%'} ),
             dcc.Input(id='eps', type='text', value='Eps',style={'width': '10%','marginRight': '0.5%','marginLeft': '4%'}),
+            dbc.Tooltip("DBscan  parameter, specifies the distance between two points to be considered within one cluster.suggested a decimal in range[1,3]", target="eps"),
             dcc.Input(id='minpts', type='text', value='MinPts',style={'width': '10%','marginRight': '0.5%'}),
+            dbc.Tooltip("DBscan parameter, the minimum number of points to form a cluster. suggested an integer in range[3,15]", target="minpts"),
             dcc.Input(id='cluster_num', type='text', value='Cluster Num',style={'width': '11%','marginRight': '0.5%'}),
+            dbc.Tooltip("Kmeans parameter, number of clusters, suggested an integer in range[2,15]", target="cluster_num"),
             html.Button(id='submit-button-state', n_clicks=0, children='Submit',style={'width': '9%','font-size':'13px',"color":"#FFFF","backgroundColor":"#2F8FD2"}),
         ],
         id="upload_block",
@@ -575,7 +613,18 @@ def global_store(eps, minpts, n_cluster):
     else:
         return ""
 
-@app.callback(Output('signal', 'figure'), [Input('submit-button-state', 'n_clicks')],
+
+# @app.callback(
+#     Output("popover", "is_open"),
+#     [Input("eps", "clickData")],
+#     [State("popover", "is_open")],
+# )
+# def toggle_popover(n, is_open):
+#     if n:
+#         return not is_open
+#     return is_open
+
+@app.callback(Output('signal', 'children'), [Input('submit-button-state', 'n_clicks')],
               [State('eps', 'value'), State('minpts', 'value'), State('cluster_num', 'value')])
 def compute_value( n_clicks, eps, minpts, n_cluster):
     # compute value and send a signal when done
@@ -584,16 +633,14 @@ def compute_value( n_clicks, eps, minpts, n_cluster):
         print("return no content")
         return ""   #haven't upload data
     else:
-        if len(os.listdir(PROCESSED_DIRECTORY)) == 0:
-            print("Directory is empty")
             if int(n_clicks)>0:
+                # if len(os.listdir(PROCESSED_DIRECTORY)) != 0:
+                #     clean_folder(PROCESSED_DIRECTORY)
                 processed_data = global_store(eps, minpts, n_cluster)
-                return processed_data
+                return "finish"
             else:
                 return ""
-        else:
-            print("Directory is not empty")
-            return False  #already  process, no need to pass data again
+       #already  process, no need to pass data again
     # global_store(value)
     # return value
 
@@ -602,38 +649,28 @@ def compute_value( n_clicks, eps, minpts, n_cluster):
 
 
 
-def save_file(name, content):
+def save_file(name, content, dir):
     """Decode and store a file uploaded with Plotly Dash."""
     data = content.encode("utf8").split(b";base64,")[1]
     #content_type, content_string = content.split(',')
-    with open(os.path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
+    with open(os.path.join(dir, name), "wb") as fp:
         fp.write(base64.decodebytes(data))
 
 
 
 @app.callback(
-    Output("processed-list", "children"),
-    [ Input('signal', 'figure')],
-)
-def get_process_list(children):
-    print("processs children",get_file_name(PROCESSED_DIRECTORY))
-    return get_file_name(PROCESSED_DIRECTORY)
-
-
-@app.callback(
     Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input('signal', 'figure')],
+    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input('signal', 'children')],
 )
 def update_output(uploaded_filenames, uploaded_file_contents, children):
     """Save uploaded files and regenerate the file list."""
-    print("file list children",children)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
-            save_file(name, data)
+            save_file(name, data, UPLOAD_DIRECTORY)
 
     files = uploaded_files(UPLOAD_DIRECTORY)
     if len(files) == 0:
-        return [html.Li("No files yet!")]
+        return ""
     else:
         FILE_LIST=[html.Li(file_download_link(filename)) for filename in files]
         return FILE_LIST
@@ -658,11 +695,11 @@ def display_page(pathname):
 
 
 @app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
-              [ Input('signal', 'figure'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
-                Input("clustering-method", "value"),Input("clustering-method-table", "value") ])
+              [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
+                Input("clustering-method", "value"),Input("clustering-method-table", "value"), Input("processed-list","children") ])
 @cache.memoize(TIMEOUT)
-def generate_tabs( content, reduction1, reduction2, method, table_method):#processed_data, table1_data,table2_data ):
-    if  content==False:#load and processed
+def generate_tabs( content, reduction1, reduction2, method, table_method, proceeed_list):#processed_data, table1_data,table2_data ):
+    if  os.listdir(PROCESSED_DIRECTORY) or proceeed_list:#load and processed
         processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "processed_data.pkl")
         group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+"_cluster_feature.pkl")
@@ -831,7 +868,29 @@ def set_bar_figure(argument_data, valuelist):
     figure = dict(data=data, layout=layout_count)
     return figure
 
+@app.callback(
+    [Output("confirm", "displayed")],
+    [Input("view-processed-button", "filename"), Input("view-processed-button", "contents"),Input("view_button","n_clicks")]
+    )
+def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
+    if n_click is None:
+        return [False]
+    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
+        clean_folder(PROCESSED_DIRECTORY)
+    print("print: ",n_click)
+    if uploaded_filenames is not None and uploaded_file_contents is not None:
+        for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
+            save_file(name, data, PROCESSED_DIRECTORY)
+        if len(os.listdir(PROCESSED_DIRECTORY)) >=6:
+            return [True]
+    return [False]
 
+
+@app.callback(Output('processed-list', 'children'),
+              [ Input('signal', 'children'),Input('confirm', 'submit_n_clicks')])
+def update_output(children, submit_n_clicks):
+    if submit_n_clicks or children:
+        return  get_file_name(PROCESSED_DIRECTORY)
 
 
 
