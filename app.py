@@ -6,6 +6,7 @@ import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import pandas as pd
+import random
 import dash_table
 from urllib.parse import quote as urlquote
 import json
@@ -28,6 +29,7 @@ APP_PATH = str(pathlib.Path(__file__).parent.resolve())   #include download
 UPLOAD_DIRECTORY = APP_PATH+"/data/app_uploaded_files/"
 PROCESSED_DIRECTORY=APP_PATH + "/data/processed/"
 DEFAULT_DATA=APP_PATH + "/data/default_data/"
+CACHE_DIRECTORY=APP_PATH+"/data/cache/"
 FILE_LIST=""
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
@@ -35,16 +37,20 @@ if not os.path.exists(UPLOAD_DIRECTORY):
 if not os.path.exists(PROCESSED_DIRECTORY):
     os.makedirs(PROCESSED_DIRECTORY)
     print("created")
+if not os.path.exists(CACHE_DIRECTORY):
+    os.makedirs(CACHE_DIRECTORY)
+    print("created")
 
 app = dash.Dash(meta_tags=[{"name": "viewport", "content": "width=device-width"}])
 server = app.server
 cache_config = {
     "CACHE_TYPE": "filesystem",
-    "CACHE_DIR": os.path.join(APP_PATH, "data/cache/"),
+    "CACHE_DIR":CACHE_DIRECTORY,
 }
 
 # Empty cache directory before running the app
-clean_folder(os.path.join(APP_PATH, "data/cache/"))
+#if
+clean_folder(CACHE_DIRECTORY)
 # folder = os.path.join(APP_PATH, "data/cache/")
 # for the_file in os.listdir(folder):
 #     file_path = os.path.join(folder, the_file)
@@ -531,7 +537,7 @@ main_page =     html.Div([
         html.Hr(),
         html.Div([
 
-            dcc.Upload(html.Button(children='Upload File'), id="upload-data",style={'width': '13%','marginRight': '2.5%'} ),
+            dcc.Upload([html.Button(children='Upload File',id="upload_button")], id="upload-data",style={'width': '13%','marginRight': '2.5%'} ),
             dcc.Input(id='eps', type='text', value='Eps',style={'width': '10%','marginRight': '0.5%','marginLeft': '4%'}),
             dbc.Tooltip("DBscan  parameter, specifies the distance between two points to be considered within one cluster.suggested a decimal in range[1,3]", target="eps"),
             dcc.Input(id='minpts', type='text', value='MinPts',style={'width': '10%','marginRight': '0.5%'}),
@@ -660,10 +666,14 @@ def save_file(name, content, dir):
 
 @app.callback(
     Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input('signal', 'children')],
+    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input("upload_button","n_clicks"),Input('signal', 'children')],
 )
-def update_output(uploaded_filenames, uploaded_file_contents, children):
+def update_output(uploaded_filenames, uploaded_file_contents, n_click,children):
     """Save uploaded files and regenerate the file list."""
+    if n_click is None:
+        return ""
+    if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is None and n_click % 2 == 1:
+        clean_folder(UPLOAD_DIRECTORY)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
             save_file(name, data, UPLOAD_DIRECTORY)
@@ -720,25 +730,47 @@ def generate_tabs( content, reduction1, reduction2, method, table_method, procee
         x_axe = "tsne_position_x"
         y_axe = "tsne_position_y"
 
-    cluster_label=method+"_cluster_label"
-    figure1 = {
-        'data': [
-            {
-                'x': processed_data[processed_data[cluster_label] == cls][x_axe],
-                'y': processed_data[processed_data[cluster_label] == cls][y_axe],
-                'text': ["groups: {}".format(x) for x in processed_data[processed_data[cluster_label] == cls]['groups']],
-                'name': cls,
-                'mode': 'markers',
-                'marker': {'size': 12,
-                           "color": WELL_COLOR_new[cls],
-                           'line': {'width': 0.5, 'color': 'white'}
+    cluster_label = method + "_cluster_label"
+    cluster_set=processed_data[cluster_label].unique()
 
-                           }
-            } for cls in processed_data[cluster_label].unique()
+    if len(cluster_set)>25:
+        r = lambda: random.randint(0, 255)
+        figure1={
+            'data': [
+                {
+                    'x': processed_data[processed_data[cluster_label] == cls][x_axe],
+                    'y': processed_data[processed_data[cluster_label] == cls][y_axe],
+                    'text': ["groups: {}".format(x) for x in processed_data[processed_data[cluster_label] == cls]['groups']],
+                    'name': cls,
+                    'mode': 'markers',
+                    'marker': {'size': 12,
+                               "color": '#%02X%02X%02X' % (r(),r(),r()),
+                               'line': {'width': 0.5, 'color': 'white'}
 
-        ],
-        'layout': layout
-    }
+                               }
+                } for cls in cluster_set
+
+            ],
+            'layout': layout
+        }
+    else:
+        figure1 = {
+            'data': [
+                {
+                    'x': processed_data[processed_data[cluster_label] == cls][x_axe],
+                    'y': processed_data[processed_data[cluster_label] == cls][y_axe],
+                    'text': ["groups: {}".format(x) for x in processed_data[processed_data[cluster_label] == cls]['groups']],
+                    'name': cls,
+                    'mode': 'markers',
+                    'marker': {'size': 12,
+                               "color": WELL_COLOR_new[cls],
+                               'line': {'width': 0.5, 'color': 'white'}
+
+                               }
+                } for cls in cluster_set
+            ],
+            'layout': layout
+        }
     if reduction2=="svd":
         x_axe="svd_position_x"
         y_axe="svd_position_y"
@@ -875,8 +907,8 @@ def set_bar_figure(argument_data, valuelist):
 def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
     if n_click is None:
         return [False]
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
-        clean_folder(PROCESSED_DIRECTORY)
+    # if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
+    #     clean_folder(PROCESSED_DIRECTORY)
     print("print: ",n_click)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
@@ -920,7 +952,8 @@ def update_cluster_rate(clickData, cluster_method):
     data = process_data.loc[selected]
     result=""
     cluster_label=cluster_method+"_cluster_label"
-    for cluster in set(data[cluster_label]):
+    clusters=set(data[cluster_label])
+    for cluster in clusters:
         num=len(data[data[cluster_label]==cluster])
         result=result+"{} % belong to cluster {} . ".format(num/len(data)*100,cluster)
     stable_value=len(data[data.groups == "stable"])/ len(data) * 100
@@ -933,29 +966,47 @@ def update_cluster_rate(clickData, cluster_method):
         "cluster": [],
         "num": []
     })
-    for cluster in set(data[cluster_label]):
+    for cluster in clusters:
         result["cluster"].append(str(cluster) + " cluster")
         num = len(data[data[cluster_label] == cluster])
         result["num"].append(num)
         # result["rate"].append(num/len(data))
+    if len(clusters) > 25:
+        r = lambda: random.randint(0, 255)
+        data_bar = [
+            dict(
+                type="pie",
+                labels=result["cluster"],
+                values=result["num"],
+                name="Production Breakdown",
+                text=[
+                    "Data Num in cluster {}".format(a) for a in result["cluster"]
+                ],
+                hoverinfo="text+value+percent",
+                textinfo='none',
+                hole=0.5,
+                marker=dict(colors=['#%02X%02X%02X' % (r(), r(), r()) for i in clusters])
 
-    data_bar = [
-        dict(
-            type="pie",
-            labels=result["cluster"],
-            values=result["num"],
-            name="Production Breakdown",
-            text=[
-                "Data Num in cluster {}".format(a) for a in result["cluster"]
-            ],
-            hoverinfo="text+value+percent",
-            textinfo="label+percent+name",
-            hole=0.5,
-            marker=dict(colors=[WELL_COLOR_new[i] for i in set(data[cluster_label])]),
-            # dict(colors=["#fac1b7", "#a9bb95", "#92d8d8"]),
-            # domain={"x": [0, 0.45], "y": [0.2, 0.8]},
-        )
-    ]
+            )
+        ]
+    else:
+        data_bar = [
+            dict(
+                type="pie",
+                labels=result["cluster"],
+                values=result["num"],
+                name="Production Breakdown",
+                text=[
+                    "Data Num in cluster {}".format(a) for a in result["cluster"]
+                ],
+                hoverinfo="text+value+percent",
+                textinfo="label+percent+name",
+                hole=0.5,
+                marker=dict(colors=[WELL_COLOR_new[i] for i in clusters]),
+
+            )
+        ]
+
     layout_pie["title"] = "Cluster Summary"
     layout_pie["legend"] = dict(
         font=dict(color="#CCCCCC", size="10"), orientation="h", bgcolor="rgba(0,0,0,0)"

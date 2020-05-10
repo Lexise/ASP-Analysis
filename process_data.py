@@ -7,13 +7,14 @@ from sklearn.decomposition import TruncatedSVD
 import os
 
 def clean_folder(folder_path):
-    for the_file in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, the_file)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            print(e)
+    if len(os.listdir(folder_path))!=0:
+        for the_file in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, the_file)
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                print(e)
 
 def change_to_hotpot(answer, item):
       returnlist = [0]*len(item)
