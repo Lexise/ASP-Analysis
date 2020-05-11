@@ -908,9 +908,10 @@ def set_bar_figure(argument_data, valuelist):
 def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
     if n_click is None:
         return [False]
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
+    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is not None and n_click%6==1:
         clean_folder(PROCESSED_DIRECTORY)
-    print("print: ",n_click)
+    print("click number: ",n_click)
+    print("upload_name:",uploaded_filenames)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
             save_file(name, data, PROCESSED_DIRECTORY)
