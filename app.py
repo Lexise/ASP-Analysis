@@ -338,7 +338,8 @@ main_page =     html.Div([
                 html.Div(
                     [
                         html.A(
-                            html.Button("Get Default Data", id="get_default_data"),
+                            html.Button("Get Default Data", id="get_default_data",
+                                        style={"color":"#FFFF","backgroundColor":"#2F8FD2"}),
                             href="https://github.com/Lexise/ASP-Analysis/tree/master/data/default_data",
                         )
                     ],
@@ -367,7 +368,7 @@ main_page =     html.Div([
                 html.Div(
                     [
 
-                        dcc.Upload([html.Button("View Processed Data" ,id="view_button")],id="view-processed-button"),
+                        dcc.Upload([html.Button("View Processed Data" ,id="view_button",style={"color":"#FFFF","backgroundColor":"#2F8FD2"})],id="view-processed-button"),
 
                         dcc.ConfirmDialog(
                             id='confirm',
@@ -707,7 +708,7 @@ def display_page(pathname):
 @app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
               [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
                 Input("clustering-method", "value"),Input("clustering-method-table", "value"), Input("processed-list","children") ])
-@cache.memoize(TIMEOUT)
+#@cache.memoize(TIMEOUT)
 def generate_tabs( content, reduction1, reduction2, method, table_method, proceeed_list):#processed_data, table1_data,table2_data ):
     if  os.listdir(PROCESSED_DIRECTORY) or proceeed_list:#load and processed
         processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "processed_data.pkl")
@@ -907,8 +908,8 @@ def set_bar_figure(argument_data, valuelist):
 def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
     if n_click is None:
         return [False]
-    # if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
-    #     clean_folder(PROCESSED_DIRECTORY)
+    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is None and n_click%6==1:
+        clean_folder(PROCESSED_DIRECTORY)
     print("print: ",n_click)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
