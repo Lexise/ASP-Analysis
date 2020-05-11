@@ -672,7 +672,7 @@ def save_file(name, content, dir):
 def update_output(uploaded_filenames, uploaded_file_contents, n_click,children):
     """Save uploaded files and regenerate the file list."""
     if n_click is not None:
-        if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is None and n_click % 2 == 1:
+        if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is not None and n_click % 2 == 1:
             clean_folder(UPLOAD_DIRECTORY)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
