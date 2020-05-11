@@ -671,10 +671,9 @@ def save_file(name, content, dir):
 )
 def update_output(uploaded_filenames, uploaded_file_contents, n_click,children):
     """Save uploaded files and regenerate the file list."""
-    if n_click is None:
-        return ""
-    if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is None and n_click % 2 == 1:
-        clean_folder(UPLOAD_DIRECTORY)
+    if n_click is not None:
+        if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is None and n_click % 2 == 1:
+            clean_folder(UPLOAD_DIRECTORY)
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
             save_file(name, data, UPLOAD_DIRECTORY)
@@ -707,10 +706,10 @@ def display_page(pathname):
 
 @app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
               [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
-                Input("clustering-method", "value"),Input("clustering-method-table", "value"), Input("processed-list","children") ])
+                Input("clustering-method", "value"),Input("clustering-method-table", "value"), Input('confirm', 'submit_n_clicks')])
 #@cache.memoize(TIMEOUT)
-def generate_tabs( content, reduction1, reduction2, method, table_method, proceeed_list):#processed_data, table1_data,table2_data ):
-    if  os.listdir(PROCESSED_DIRECTORY) or proceeed_list:#load and processed
+def generate_tabs( content, reduction1, reduction2, method, table_method, n_click):#processed_data, table1_data,table2_data ):
+    if  os.listdir(PROCESSED_DIRECTORY) or n_click:#load and processed
         processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "processed_data.pkl")
         group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+"_cluster_feature.pkl")
@@ -923,7 +922,7 @@ def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
 @app.callback(Output('processed-list', 'children'),
               [ Input('signal', 'children'),Input('confirm', 'submit_n_clicks')])
 def update_output(children, submit_n_clicks):
-    if submit_n_clicks or children:
+    #if submit_n_clicks or children:
         return  get_file_name(PROCESSED_DIRECTORY)
 
 
