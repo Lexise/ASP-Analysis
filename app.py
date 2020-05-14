@@ -7,7 +7,8 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import pandas as pd
 import random
-import dash_table
+import io
+from zipfile import ZipFile
 from urllib.parse import quote as urlquote
 import json
 from control import WELL_COLOR_new
@@ -31,6 +32,7 @@ PROCESSED_DIRECTORY=APP_PATH + "/data/processed/"
 DEFAULT_DATA=APP_PATH + "/data/default_data/"
 CACHE_DIRECTORY=APP_PATH+"/data/cache/"
 FILE_LIST=""
+ZIP_DIRECTORY=APP_PATH + "/data/processed_zip/"
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
     print("created")
@@ -40,7 +42,9 @@ if not os.path.exists(PROCESSED_DIRECTORY):
 if not os.path.exists(CACHE_DIRECTORY):
     os.makedirs(CACHE_DIRECTORY)
     print("created")
-
+if not os.path.exists(ZIP_DIRECTORY):
+    os.makedirs(ZIP_DIRECTORY)
+    print("created")
 app = dash.Dash(meta_tags=[{"name": "viewport", "content": "width=device-width"}])
 server = app.server
 cache_config = {
@@ -67,6 +71,8 @@ def download(path):
         return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
     elif os.path.exists(PROCESSED_DIRECTORY+path):
         return send_from_directory(PROCESSED_DIRECTORY, path, as_attachment=True)
+    elif os.path.exists(ZIP_DIRECTORY + path):
+        return send_from_directory(ZIP_DIRECTORY, path, as_attachment=True)
     else:
         return send_from_directory(DEFAULT_DATA, path, as_attachment=True)
 
@@ -372,7 +378,7 @@ main_page =     html.Div([
 
                         dcc.ConfirmDialog(
                             id='confirm',
-                            message='finish uploading?',
+                            message='Do you want to visualize uploaded data?',
                         ),
                         html.Div(id='hidden-div', style={'display':'none'})
                         #html.A('Refresh', href='/')
@@ -605,9 +611,11 @@ def global_store(eps, minpts, n_cluster):
                 return html.Div([
                     'There was an error processing this file.'
                 ])
+        zipname=files[0].strip("apx")+"zip"
         start_time = time.time()
         print("start process")
         processed_data, bar_data, correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature = process_data(UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+answer,eps, minpts, n_cluster)
+
         group_feature.to_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
         cluster_feature_db.to_pickle(PROCESSED_DIRECTORY + "db_cluster_feature.pkl")
         cluster_feature_km.to_pickle(PROCESSED_DIRECTORY + "km_cluster_feature.pkl")
@@ -615,6 +623,15 @@ def global_store(eps, minpts, n_cluster):
         processed_data.to_pickle(PROCESSED_DIRECTORY+"processed_data.pkl")
         bar_data.to_pickle(PROCESSED_DIRECTORY + "bar_data.pkl")
         correlation_matrix.to_pickle(PROCESSED_DIRECTORY + "correlation_matrix.pkl")
+        # create a ZipFile object
+        with ZipFile(ZIP_DIRECTORY+zipname, 'w') as zipObj:
+            # Iterate over all the files in directory
+            for folderName, subfolders, filenames in os.walk(PROCESSED_DIRECTORY):
+                for filename in filenames:
+                # create complete filepath of file in directory
+                    filePath = os.path.join(folderName, filename)
+                    # Add file to zip
+                    zipObj.write(filePath,arcname=filename)
         print("get processed data", time.time() - start_time)
         return processed_data.to_dict()
     else:
@@ -900,30 +917,51 @@ def set_bar_figure(argument_data, valuelist):
     figure = dict(data=data, layout=layout_count)
     return figure
 
-@app.callback(
-    [Output("confirm", "displayed")],
-    [Input("view-processed-button", "filename"), Input("view-processed-button", "contents"),Input("view_button","n_clicks")]
-    )
-def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
-    if n_click is None:
-        return [False]
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is not None and n_click%6==1:
-        clean_folder(PROCESSED_DIRECTORY)
-    print("click number: ",n_click)
-    print("upload_name:",uploaded_filenames)
-    if uploaded_filenames is not None and uploaded_file_contents is not None:
-        for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
-            save_file(name, data, PROCESSED_DIRECTORY)
-        if len(os.listdir(PROCESSED_DIRECTORY)) >=6:
-            return [True]
-    return [False]
+# @app.callback(
+#     [Output("confirm", "displayed")],
+#     [Input("view-processed-button", "filename"), Input("view-processed-button", "contents"),Input("view_button","n_clicks")]
+#     )
+# def run_processed_data(uploaded_filenames, uploaded_file_contents,n_click ):
+#     if n_click is None:
+#         return [False]
+#     if len(os.listdir(PROCESSED_DIRECTORY))!=0 and uploaded_filenames is not None and n_click%6==1:
+#         clean_folder(PROCESSED_DIRECTORY)
+#     print("click number: ",n_click)
+#     print("upload_name:",uploaded_filenames)
+#     if uploaded_filenames is not None and uploaded_file_contents is not None:
+#         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
+#             save_file(name, data, PROCESSED_DIRECTORY)
+#         if len(os.listdir(PROCESSED_DIRECTORY)) >=6:
+#             return [True]
+#     return [False]
 
+
+
+
+
+@app.callback([Output("confirm", "displayed")],
+              [Input('view-processed-button', 'contents')],
+              [State('view-processed-button', 'filename')])
+def update_output(content, name):
+    if content is None:
+        return [False]
+    #for content, name, date in zip(list_of_contents, list_of_names, list_of_dates):
+        # the content needs to be split. It contains the type and the real content
+    content_type, content_string = content.split(',')
+    # Decode the base64 string
+    content_decoded = base64.b64decode(content_string)
+    # Use BytesIO to handle the decoded content
+    zip_str = io.BytesIO(content_decoded)
+    # Now you can use ZipFile to take the BytesIO output
+    zip_obj = ZipFile(zip_str, 'r')
+    zip_obj.extractall(PROCESSED_DIRECTORY)
+    return [True]
 
 @app.callback(Output('processed-list', 'children'),
               [ Input('signal', 'children'),Input('confirm', 'submit_n_clicks')])
 def update_output(children, submit_n_clicks):
     #if submit_n_clicks or children:
-        return  get_file_name(PROCESSED_DIRECTORY)
+        return  get_file_name(ZIP_DIRECTORY)
 
 
 
