@@ -1159,8 +1159,8 @@ def displayClick(btn1):
                     "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]], #[[ 0, WELL_COLOR_new[0]], [ 1, WELL_COLOR_new[3]]],
                     "reversescale" : True,
                     "showscale" : True,
-                    "xgap" : 2,
-                    "ygap" : 2,
+                    #"xgap" : 0.1,
+                    #"ygap" : 0.1,
                     "colorbar": {
                         "len":0.6,
                         "ticks":"",
@@ -1189,8 +1189,8 @@ def displayClick(btn1):
                             "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]],
                             #"reversescale" : True,
                             "showscale" : True,
-                            "xgap" : 2,
-                            "ygap" : 2,
+                            #"xgap" : 0.1,
+                            #"ygap" : 0.1,
                             "colorbar": {
                                 "len":0.6,
                                 "ticks":"",
