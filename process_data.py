@@ -5,6 +5,8 @@ from sklearn.cluster import KMeans,DBSCAN
 from sklearn.manifold import TSNE
 from sklearn.decomposition import TruncatedSVD
 import os
+from zipfile import ZipFile
+from pathlib import Path
 
 def clean_folder(folder_path):
     if len(os.listdir(folder_path))!=0:
@@ -22,14 +24,61 @@ def change_to_hotpot(answer, item):
         if ele in item:
           returnlist[item.index(ele)]=1
       return returnlist
+def process_answer_set(itemlist,answer_sets):
+        if 'EE-PR' in answer_sets:
+            semantic="prefer"
+        elif "EE-STG" in answer_sets:
+            semantic="stage"
 
-def process_data( arguments_file, answer_sets,eps, minpts, n_cluster):
+        with open(answer_sets, 'r') as file:
+            answer = file.read()
+        test = answer.split("Answer:")
+        del test[0]
+        indexlist = [int(s.split("\n", 1)[0]) for s in test]
+
+        transfered = []
+        arguments = []
+        for s in test:
+            temp1 = re.findall(r"^in(.*)", s, re.M)
+            if len(temp1) != 0:
+                temp2 = [int(s) for s in re.findall(r'\d+', temp1[0])]
+                one_answer = change_to_hotpot(temp2, itemlist)
+                transfered.append(one_answer)
+                arguments.append(temp2)
+            else:
+                arguments.append(temp1)
+                transfered.append([])
+        not_stable_arg = []
+        for s in test:
+            if semantic == "prefer":
+                temp1 = re.findall(r"defeated(.*)", s, re.M)
+            else:
+                temp1= re.findall(r"nrge(.*)", s, re.M)
+            if len(temp1) != 0:
+                temp2 = [int(s) for s in re.findall(r'\d+', temp1[0])]
+                not_stable_arg.append(temp2)
+            else:
+                not_stable_arg.append(temp1)
+
+        processed_data = pd.DataFrame({
+            'id': indexlist,
+            'in': transfered,
+            'arg': arguments,
+            'not_defeated': not_stable_arg,
+
+
+        })
+def process_data(dir, arguments_file, answer_sets, eps, minpts, n_cluster):
         with open(arguments_file, 'r') as file:
             question = file.read()
         itemlist = [int(s) for s in re.findall(r"arg[(]a(.*?)[)].", question)]
         itemlist.sort()
         with open(answer_sets, 'r') as file:
             answer = file.read()
+        if 'EE-PR' in answer_sets:
+            semantic="prefer"
+        elif "EE-STG" in answer_sets:
+            semantic="stage"
         test = answer.split("Answer:")
         del test[0]
         indexlist = [int(s.split("\n",1)[0]) for s in test]
@@ -47,34 +96,61 @@ def process_data( arguments_file, answer_sets,eps, minpts, n_cluster):
             arguments.append(temp1)
             transfered.append([])
 
-        not_defeated1=[]
-        for s in test:
-          temp1=re.findall(r"defeated(.*)", s, re.M)
-          if len(temp1)!=0:
-            temp2=[int(s) for s in re.findall(r'\d+', temp1[0])]
-            not_defeated1.append(temp2)
-          else:
-            not_defeated1.append(temp1)
 
-        processed_data = pd.DataFrame({
-            'id': indexlist,
-            'in': transfered,
-            'arg': arguments,
-            'not_defeated': not_defeated1,
+        if semantic=="prefer":
+            not_defeated1 = []
+            for s in test:
+                temp1 = re.findall(r"defeated(.*)", s, re.M)
+                if len(temp1) != 0:
+                    temp2 = [int(s) for s in re.findall(r'\d+', temp1[0])]
+                    not_defeated1.append(temp2)
+                else:
+                    not_defeated1.append(temp1)
+            processed_data = pd.DataFrame({
+                'id': indexlist,
+                'in': transfered,
+                'arg': arguments,
+                'not_defeated': not_defeated1,
+            })
+            processed_data["groups"] = ["complete"] * len(processed_data)
+            stable_idx = []
+            for index, row in processed_data.iterrows():
+                if len(row.not_defeated) == 0:
+                    stable_idx.append(index)
+            processed_data.loc[stable_idx, "groups"] = ["stable"] * len(stable_idx)
+            processed_data.loc[~processed_data.index.isin(stable_idx), "groups"] = ["prefer-"] * (
+                        len(processed_data) - len(stable_idx))
+            if eps != "" and eps != "Eps":
+                processed_data = clustering_dbscan(processed_data, float(eps), int(minpts))
+            else:
+                processed_data = clustering_dbscan(processed_data)
 
-
-        })
-        processed_data["groups"]=["complete"]*len(processed_data)
-        stable_idx=[]
-        for index, row in processed_data.iterrows():
-          if len(row.not_defeated) == 0:
-            stable_idx.append(index)
-        processed_data.loc[stable_idx,"groups"]=["stable"]*len(stable_idx)
-        processed_data.loc[~processed_data.index.isin(stable_idx),"groups"]=["prefer-"]*(len(processed_data)-len(stable_idx))
-        if eps!= ""  and eps != "Eps":
-            processed_data=clustering_dbscan(processed_data,float(eps), int(minpts))
         else:
-            processed_data=clustering_dbscan(processed_data)
+            not_defeated1=[]
+            for s in test:
+                temp1 = re.findall(r"nrge(.*)", s, re.M)
+                if len(temp1) != 0:
+                    temp2 = [int(s) for s in re.findall(r'\d+', temp1[0])]
+                    not_defeated1.append(temp2)
+                else:
+                    not_defeated1.append(temp1)
+            processed_data = pd.DataFrame({
+                'id': indexlist,
+                'in': transfered,
+                'arg': arguments,
+                'nrge': not_defeated1,
+            })
+            processed_data["groups"] = ["stag"] * len(processed_data)
+            stable_idx = []
+            for index, row in processed_data.iterrows():
+                if len(row.nrge) == 0:
+                    stable_idx.append(index)
+            processed_data.loc[stable_idx, "groups"] = ["stable"] * len(stable_idx)
+            if eps != "" and eps != "Eps":
+                processed_data = clustering_dbscan(processed_data, float(eps), int(minpts))
+            else:
+                processed_data = clustering_dbscan(processed_data)
+
 
 
         processed_data=dimensional_reduction(processed_data)
@@ -120,8 +196,30 @@ def process_data( arguments_file, answer_sets,eps, minpts, n_cluster):
         group_feature=find_feature_group(itemlist,processed_data)
         #
         #
-        #
-        return processed_data,bar_data,correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature
+        processed_data_dir=dir+semantic
+        group_feature.to_pickle(processed_data_dir + "_group_feature.pkl")
+        cluster_feature_db.to_pickle(processed_data_dir + "_db_cluster_feature.pkl")
+        cluster_feature_km.to_pickle(processed_data_dir + "_km_cluster_feature.pkl")
+
+        processed_data.to_pickle(processed_data_dir + "_processed_data.pkl")
+        bar_data.to_pickle(processed_data_dir + "_bar_data.pkl")
+        correlation_matrix.to_pickle(processed_data_dir + "_correlation_matrix.pkl")
+        # create a ZipFile object
+        file_name=arguments_file.split("/")[-1]
+        zipname = semantic+"_"+file_name.strip("apx") + "zip"
+        path = Path(dir)
+        zip_dir= str(path.parent) +"/processed_zip/"
+        with ZipFile(zip_dir + zipname, 'w') as zipObj:
+            # Iterate over all the files in directory
+            for folderName, subfolders, filenames in os.walk(dir):
+                for filename in filenames:
+                    if filename.find(semantic)==0:
+                        # create complete filepath of file in directory
+                        filePath = os.path.join(folderName, filename)
+                        # Add file to zip
+                        zipObj.write(filePath, arcname=filename)
+
+        #return processed_data,bar_data,correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature
 
 
 def clustering_km( data, cluster_num=2):

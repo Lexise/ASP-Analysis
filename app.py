@@ -14,10 +14,10 @@ import json
 from control import WELL_COLOR_new
 import dash_table
 import os
-import flask
+import plotly.graph_objects as go
 from flask_caching import Cache
 from flask import Flask, send_from_directory
-from clustering_correlation import compute_serial_matrix
+from clustering_correlation import compute_serial_matrix,innovative_correlation_clustering
 import numpy as np
 from process_data import  process_data,clean_folder
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -32,6 +32,8 @@ PROCESSED_DIRECTORY=APP_PATH + "/data/processed/"
 DEFAULT_DATA=APP_PATH + "/data/default_data/"
 CACHE_DIRECTORY=APP_PATH+"/data/cache/"
 FILE_LIST=""
+
+
 ZIP_DIRECTORY=APP_PATH + "/data/processed_zip/"
 if not os.path.exists(UPLOAD_DIRECTORY):
     os.makedirs(UPLOAD_DIRECTORY)
@@ -116,13 +118,19 @@ layout = dict(
 
 
 dataset_all=pd.read_pickle('long-island-railroad_argument_frequency.pkl')
+stage_dataset_all=pd.read_pickle('stage_long-island-railroad_argument_frequency.pkl')
 df = pd.read_pickle('long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
+stage_df=pd.read_pickle('stage_long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
 report_cluster_km=pd.read_pickle("km_long-island-railroad_cluster_report.pkl")
+stage_report_cluster_km=pd.read_pickle("stage_km_long-island-railroad_cluster_report.pkl")
 report_cluster_db=pd.read_pickle("db_long-island-railroad_cluster_report.pkl")
+stage_report_cluster_db=pd.read_pickle("stage_db_long-island-railroad_cluster_report.pkl")
 
 report_groups=pd.read_pickle("long-island-railroad_groups_report.pkl")
-
+stage_report_groups=pd.read_pickle("stage_long-island-railroad_groups_report.pkl")
 correlation_matrix=pd.read_pickle("answer2_correlation_matrix.pkl")
+
+stage_correlation_matrix=pd.read_pickle("stage_answer2_correlation_matrix.pkl")
 
 cache = Cache()
 cache.init_app(app.server, config=cache_config)
@@ -170,6 +178,18 @@ argument_analysis=html.Div([
                     #     step=1,
                     #     value=[5, int(0.5*len(dataset_all))]
                     # ),
+                    html.P("Presented semantic extension:", style={"font-weight": "bold"},className="control_label"),
+                    dcc.RadioItems(
+                        id="data_semantic_selector",
+                        options=[
+                            {"label": "Preferred ", "value": "pr"},
+                            {"label": "Stage", "value": "stg"},
+                        ],
+                        value="pr",
+                        labelStyle={"display": "inline-block"},
+                        className="dcc_control",
+                    ),
+
                     html.P("Presented data:", style={"font-weight": "bold"},className="control_label"),
                     dcc.RadioItems(
                         id="data_present_selector",
@@ -244,10 +264,11 @@ argument_analysis=html.Div([
                                 [html.H6(id="prefer"), html.P("Prefer")],
                                 id="prefer_block",
                                 className="mini_container",
+
                             ),
                             html.Div(
-                                [html.H6(id="complete"), html.P("Complete")],
-                                id="complete_block",
+                                [html.H6(id="stage"), html.P("Stage")],
+                                id="stage_block",
                                 className="mini_container",
                             ),
 
@@ -330,8 +351,33 @@ correlation_page= html.Div([
                 dcc.Graph(
                     id="correlation_hm"
                    ),
-                    html.Button('Cluster Correlation Matrix',style={'font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}, id='btn-nclicks-1', n_clicks=0)
+
+#html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}),
+                html.Div([
+                    html.Button('Clustering Method 1',
+                                style={'font-size': '14px','marginLeft': '2%', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
+                                id='btn-nclicks-1', n_clicks=0),
+                    html.Button('Clustering Method 2',
+                                style={'font-size': '14px', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
+                                id='btn-nclicks-2', n_clicks=0),
+                    html.P("Presented semantic extension:", style={"font-weight": "bold"}, className="dcc_control"),
+
+                    dcc.RadioItems(
+                        id="data_semantic_correlation",
+                        loading_state={"is_loading":True},
+                        options=[
+                            {"label": "Preferred ", "value": "pr"},
+                            {"label": "Stage", "value": "stg"},
+                        ],
+                        value="pr",
+                        labelStyle={"display": "inline-block"},
+                        className="dcc_control",
+                    ),
                     ],
+                className="row flex-display"
+                )
+
+                ],
             className="pretty_container")
     ])
 
@@ -430,6 +476,7 @@ main_page =     html.Div([
     #
     #
     html.Div([
+
         dcc.Tabs([
             dcc.Tab(label='Scatter with Cluster', style={ 'fontWeight': 'bold'}, children=[
                 dcc.Graph(
@@ -437,6 +484,19 @@ main_page =     html.Div([
 
                 ),
                 html.Div([
+                    html.Div([
+                    html.Span("Semantics:", style={"font-weight": "bold"}),
+                    dcc.RadioItems(
+                        id="semantic-method",
+                        options=[
+                                    {"label": "PREFER", "value": "pr"},
+                                    {"label": "STAGE", "value": "stg"},
+                                ],
+                        labelStyle={"display": "inline-block"},
+                        value="pr",
+                    )],
+                    style = {'width': '30%'},
+                    ),
                     html.Div(children=[
                         html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
                         dcc.RadioItems(
@@ -489,6 +549,8 @@ main_page =     html.Div([
                     id="scatter_groups",
 
                 ),
+
+
                 html.Div(children=[
                     html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
                     dcc.RadioItems(
@@ -539,8 +601,9 @@ main_page =     html.Div([
 
 
 
-        dcc.Link(html.Button('Argument Analysis',style={'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
-        dcc.Link(html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-correlation'),
+        dcc.Link(html.Button('Argument Analysis',style={'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
+        dcc.Link(html.Button('3D Analysis',style={'marginLeft': '2%','width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-3d'),
+        dcc.Link(html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-correlation'),
         html.Hr(),
         html.Div([
 
@@ -559,7 +622,16 @@ main_page =     html.Div([
         html.Br(),
         html.Div([
             html.Div([
-                html.P("Upload"),
+
+                html.Div([
+                    html.P("Upload",className="dcc_control",style={"width":"91%",'textAlign': 'left'}),
+                    html.Button(id='clear-upload', n_clicks=0, children='Clear',style={'width': '12%','font-size':'11px','textAlign': 'right'}),
+                    html.Button(id='reset_click', n_clicks=0, style={'display':'none'})
+
+                ],
+                    className="row flex-display",
+                    #style={'textAlign': 'right'}
+                ),
                 html.Ul(id="file-list", children=get_file_name(UPLOAD_DIRECTORY))
             ],
                 className="pretty_container seven columns"),
@@ -574,6 +646,73 @@ main_page =     html.Div([
 
     ])
 
+
+
+
+
+
+ThreeD_analysis=html.Div([
+dcc.Link(html.Button('back'), href='/'),
+html.Div([
+    dcc.Graph(id="3d_scatter_cluster"),
+    dcc.Graph(id="3d_scatter_group"),
+    ],
+    className="row flex-display"
+),
+    html.Div([
+        html.Div([
+                    html.P("Presented semantic extension:", style={"font-weight": "bold"}, className="dcc_control"),
+
+                    dcc.RadioItems(
+                        id="data_semantic_correlation_3d",
+                        loading_state={"is_loading":True},
+                        options=[
+                            {"label": "Preferred ", "value": "pr"},
+                            {"label": "Stage", "value": "stg"},
+                        ],
+                        value="pr",
+                        labelStyle={"display": "inline-block"},
+                        className="dcc_control",
+                    ),
+                    ],
+                style={'marginRight': '2%', 'width': '30%'},
+                className="row flex-display"
+                ),
+        html.Div([
+                    html.P("Dimensional Reduction Method:", style={"font-weight": "bold"},className="dcc_control"),
+                    dcc.RadioItems(
+                        id="reduction_method",
+                        options=[
+                            {"label": "Tsne ", "value": "tsne"},
+                            {"label": "SVD", "value": "svd"},
+                        ],
+                        labelStyle={"display": "inline-block"},
+                        value="tsne",
+                        className="dcc_control",
+                )],
+                style={'marginRight': '2%', 'width': '30%'},
+                className="row flex-display"
+        ),
+        html.Div([
+                    html.P("Cluster Algorithm:", style={"font-weight": "bold"}, className="dcc_control"),
+                    dcc.RadioItems(
+                        id="clustering-method",
+                        options=[
+                            {"label": "DBscan ", "value": "db"},
+                            {"label": "Kmeans", "value": "km"},
+                        ],
+                        labelStyle={"display": "inline-block"},
+                        value="db",
+                        className="dcc_control",
+                    )],
+
+            style={ 'width': '30%'},
+            className="row flex-display"
+            )
+        ],
+        className = "row flex-display"),
+    ],
+className="pretty_container")
 
 app.layout = html.Div([
 
@@ -596,7 +735,6 @@ app.layout = html.Div([
 def global_store(eps, minpts, n_cluster):
     # simulate expensive query
     files = uploaded_files(UPLOAD_DIRECTORY)
-
     if len(files)>1:
         for filename in files:
             try:
@@ -605,7 +743,9 @@ def global_store(eps, minpts, n_cluster):
                     question = filename
                 elif 'EE-PR' in filename:
                     # Assume that the user uploaded an excel file
-                    answer = filename
+                    pr_answer = filename
+                elif "EE-STG" in filename:
+                    stg_answer = filename
             except Exception as e:
                 print(e)
                 return html.Div([
@@ -614,28 +754,11 @@ def global_store(eps, minpts, n_cluster):
         zipname=files[0].strip("apx")+"zip"
         start_time = time.time()
         print("start process")
-        processed_data, bar_data, correlation_matrix,cluster_feature_db,cluster_feature_km,group_feature = process_data(UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+answer,eps, minpts, n_cluster)
+        process_data(PROCESSED_DIRECTORY,UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+pr_answer,eps, minpts, n_cluster)
+        process_data(PROCESSED_DIRECTORY, UPLOAD_DIRECTORY + question, UPLOAD_DIRECTORY + stg_answer, eps, minpts, n_cluster)
 
-        group_feature.to_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
-        cluster_feature_db.to_pickle(PROCESSED_DIRECTORY + "db_cluster_feature.pkl")
-        cluster_feature_km.to_pickle(PROCESSED_DIRECTORY + "km_cluster_feature.pkl")
-
-        processed_data.to_pickle(PROCESSED_DIRECTORY+"processed_data.pkl")
-        bar_data.to_pickle(PROCESSED_DIRECTORY + "bar_data.pkl")
-        correlation_matrix.to_pickle(PROCESSED_DIRECTORY + "correlation_matrix.pkl")
-        # create a ZipFile object
-        with ZipFile(ZIP_DIRECTORY+zipname, 'w') as zipObj:
-            # Iterate over all the files in directory
-            for folderName, subfolders, filenames in os.walk(PROCESSED_DIRECTORY):
-                for filename in filenames:
-                # create complete filepath of file in directory
-                    filePath = os.path.join(folderName, filename)
-                    # Add file to zip
-                    zipObj.write(filePath,arcname=filename)
         print("get processed data", time.time() - start_time)
-        return processed_data.to_dict()
-    else:
-        return ""
+
 
 
 # @app.callback(
@@ -660,7 +783,7 @@ def compute_value( n_clicks, eps, minpts, n_cluster):
             if int(n_clicks)>0:
                 # if len(os.listdir(PROCESSED_DIRECTORY)) != 0:
                 #     clean_folder(PROCESSED_DIRECTORY)
-                processed_data = global_store(eps, minpts, n_cluster)
+                global_store(eps, minpts, n_cluster)
                 return "finish"
             else:
                 return ""
@@ -680,17 +803,18 @@ def save_file(name, content, dir):
     with open(os.path.join(dir, name), "wb") as fp:
         fp.write(base64.decodebytes(data))
 
-
-
 @app.callback(
     Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents"), Input("upload_button","n_clicks"),Input('signal', 'children')],
+    [Input("upload-data", "filename"), Input("upload-data", "contents"),Input("clear-upload","n_clicks"), Input("upload_button","n_clicks"),Input('signal', 'children')]
 )
-def update_output(uploaded_filenames, uploaded_file_contents, n_click,children):
+def update_output(uploaded_filenames, uploaded_file_contents,clear_click, n_click,children ):
     """Save uploaded files and regenerate the file list."""
-    if n_click is not None:
-        if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and uploaded_filenames is not None and n_click % 2 == 1:
+
+    if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and clear_click==1 and n_click==None:
             clean_folder(UPLOAD_DIRECTORY)
+
+            return ""
+
     if uploaded_filenames is not None and uploaded_file_contents is not None:
         for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
             save_file(name, data, UPLOAD_DIRECTORY)
@@ -717,29 +841,44 @@ def display_page(pathname):
         return argument_analysis
     elif pathname == '/page-correlation':
         return correlation_page
+    elif pathname=="/page-3d":
+        return ThreeD_analysis
     else:
         return main_page
 
 
 @app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
-              [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"),
-                Input("clustering-method", "value"),Input("clustering-method-table", "value"), Input('confirm', 'submit_n_clicks')])
+              [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"), Input("semantic-method","value"),
+                Input("clustering-method", "value"),Input("clustering-method-table", "value"),  Input('confirm', 'submit_n_clicks')])
 #@cache.memoize(TIMEOUT)
-def generate_tabs( content, reduction1, reduction2, method, table_method, n_click):#processed_data, table1_data,table2_data ):
+def generate_tabs( content, reduction1, reduction2, semantic1,  method, table_method, n_click):#processed_data, table1_data,table2_data ):
     if  os.listdir(PROCESSED_DIRECTORY) or n_click:#load and processed
-        processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "processed_data.pkl")
-        group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
-        cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+"_cluster_feature.pkl")
+        if semantic1 == "pr":
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_group_feature.pkl")
+            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY +"prefer_" +table_method + "_cluster_feature.pkl")
+        else:
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
+            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_group_feature.pkl")
+            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_"+table_method+"_cluster_feature.pkl")
     else:
-            processed_data=df
+        if semantic1 =="pr":
+            processed_data = df
             group_table = report_groups
             if table_method=="km":
                 cluster_table = report_cluster_km
             else:
                 cluster_table = report_cluster_db
-            # processed_data=pd.DataFrame.from_dict(content)
-            # group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
-            # cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+ "_cluster_feature.pkl")
+        else:
+            processed_data = stage_df
+            group_table = stage_report_groups
+            if table_method=="km":
+                cluster_table = stage_report_cluster_km
+            else:
+                cluster_table = stage_report_cluster_db
+        # processed_data=pd.DataFrame.from_dict(content)
+        # group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
+        # cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+ "_cluster_feature.pkl")
     if reduction1=="svd":
         x_axe="svd_position_x"
         y_axe="svd_position_y"
@@ -855,15 +994,22 @@ def generate_tabs( content, reduction1, reduction2, method, table_method, n_clic
 
 @app.callback(
     [Output("bar_chart", "figure"),Output("my-range-slider","figure")],
-    [Input("data_present_selector", "value"),Input("my-range-slider", "value"),Input("sort_selector", "value")],
+    [Input("data_present_selector", "value"),Input("my-range-slider", "value"),Input("sort_selector", "value"),Input("data_semantic_selector", "value")],
     )
 @cache.memoize(TIMEOUT)
-def make_bar_figure(present_data, valuelist,sort_state):
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0:
-        dataset_bar=pd.read_pickle(PROCESSED_DIRECTORY+"bar_data.pkl")
+def make_bar_figure(present_data, valuelist,sort_state,semantic):
+
+
+    if os.listdir(PROCESSED_DIRECTORY):  # load and processed
+        if semantic == "pr":
+            dataset_bar = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_bar_data.pkl")
+        else:
+            dataset_bar = pd.read_pickle(PROCESSED_DIRECTORY + "stage_bar_data.pkl")
     else:
-        dataset_bar=dataset_all
-    figure=dict()
+        if semantic == "pr":
+            dataset_bar = dataset_all
+        else:
+            dataset_bar = stage_dataset_all
     slider=dict(
         min = 0,
         max = len(dataset_bar),
@@ -935,16 +1081,43 @@ def set_bar_figure(argument_data, valuelist):
 #             return [True]
 #     return [False]
 
+#
+# @app.callback([Output("confirm", "displayed")],
+#               [Input('view-processed-button', 'contents')],
+#               [State('view-processed-button', 'filename')])
+# def update_output(content, name):
+#     if content is None:
+#         return [False]
+#     #for content, name, date in zip(list_of_contents, list_of_names, list_of_dates):
+#         # the content needs to be split. It contains the type and the real content
+#     content_type, content_string = content.split(',')
+#     # Decode the base64 string
+#     content_decoded = base64.b64decode(content_string)
+#     # Use BytesIO to handle the decoded content
+#     zip_str = io.BytesIO(content_decoded)
+#     # Now you can use ZipFile to take the BytesIO output
+#     zip_obj = ZipFile(zip_str, 'r')
+#     zip_obj.extractall(PROCESSED_DIRECTORY)
+#     return [True]
 
 
+@app.callback(Output("confirm", "displayed"),
+       [Input("hidden-div","figure")])
+def show_confirm(value):
+    if value :
+        #print(n_click)
+        if len(os.listdir(PROCESSED_DIRECTORY))==12:
+            print("test:", value)
+            return True
+    return False
 
 
-@app.callback([Output("confirm", "displayed")],
-              [Input('view-processed-button', 'contents')],
+@app.callback(Output('hidden-div', 'figure'),
+              [Input('view-processed-button', 'contents'),Input("view_button","n_clicks")],
               [State('view-processed-button', 'filename')])
-def update_output(content, name):
+def update_output(content, n_click, name):
     if content is None:
-        return [False]
+        return None
     #for content, name, date in zip(list_of_contents, list_of_names, list_of_dates):
         # the content needs to be split. It contains the type and the real content
     content_type, content_string = content.split(',')
@@ -955,30 +1128,50 @@ def update_output(content, name):
     # Now you can use ZipFile to take the BytesIO output
     zip_obj = ZipFile(zip_str, 'r')
     zip_obj.extractall(PROCESSED_DIRECTORY)
-    return [True]
+
+    if n_click>=2 and n_click%2==0 and len(os.listdir(PROCESSED_DIRECTORY))==12:
+        files = zip_obj.namelist()
+        return files
+    else:
+        return None
 
 @app.callback(Output('processed-list', 'children'),
-              [ Input('signal', 'children'),Input('confirm', 'submit_n_clicks')])
-def update_output(children, submit_n_clicks):
-    #if submit_n_clicks or children:
+              [ Input('signal', 'children'),Input('hidden-div', 'figure'), Input('confirm', 'submit_n_clicks')])#
+def update_output(children1, children2, n_click):
+    if  children2:
+        [html.Li(file_download_link(filename)) for filename in children2]
+    if n_click or children1:
         return  get_file_name(ZIP_DIRECTORY)
 
 
 
 @app.callback(
-    [Output("selected_cluster","children"), Output('stable', 'children'), Output('prefer', 'children'),
-     Output('complete', 'children'),Output("pie_graph", "figure")],
-    [Input('bar_chart', 'clickData') ,Input("clustering-method","value")])
+    [Output("selected_cluster","children"),
+        Output('prefer_block', 'style'), Output('stage_block', 'style'), Output('stable', 'children'),  Output('prefer', 'children'),Output('stage', 'children')
+        ,Output("pie_graph", "figure")],
+    [Input('bar_chart', 'clickData') ,Input("clustering-method","value"), Input("data_semantic_selector", "value")])
 
-def update_cluster_rate(clickData, cluster_method):
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0:
-        process_data=pd.read_pickle(PROCESSED_DIRECTORY+"processed_data.pkl")
+
+
+
+
+
+def update_cluster_rate(clickData, cluster_method, semantic):
+    if os.listdir(PROCESSED_DIRECTORY):  # load and processed
+        if semantic == "pr":
+            process_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+        else:
+            process_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
     else:
-        process_data=df
+        if semantic == "pr":
+            process_data = df
+        else:
+            process_data = stage_df
+
     layout_pie = copy.deepcopy(layout)
     layout_pie["title"] = "Cluster Summary"
     if clickData is None:
-        return "Selected Argument: None","","","",dict(data=None, layout=layout_pie),
+        return "Selected Argument: None",{'display':'block'},{'display':'none'},"","","",dict(data=None, layout=layout_pie),
     temp=clickData["points"][0]
     arguments=int(re.search(r'\d+', temp["x"]).group())
     selected=[]
@@ -987,7 +1180,7 @@ def update_cluster_rate(clickData, cluster_method):
         if arguments in row.arg:
             selected.append(index)
     if len(selected) == 0:
-        return "No data has this argument","","","",dict(data=None, layout=layout_pie),
+        return "No data has this argument","","","","","",dict(data=None, layout=layout_pie),
     data = process_data.loc[selected]
     result=""
     cluster_label=cluster_method+"_cluster_label"
@@ -996,10 +1189,18 @@ def update_cluster_rate(clickData, cluster_method):
         num=len(data[data[cluster_label]==cluster])
         result=result+"{} % belong to cluster {} . ".format(num/len(data)*100,cluster)
     stable_value=len(data[data.groups == "stable"])/ len(data) * 100
-    prefer_value=len(data[data.groups == "prefer-"])/ len(data) * 100
-    stable= "{:.2f}".format(stable_value)+"%"
-    prefer="{:.2f}".format(prefer_value)+"%"
-    complete= "{:.2f}".format(100-stable_value-prefer_value)+"%"
+    stable = "{:.2f}".format(stable_value) + "%"
+    if semantic == "pr":
+        prefer_value=len(data[data.groups == "prefer-"])/ len(data) * 100
+        other="{:.2f}".format(prefer_value)+"%"
+        pr_display={'display':'block'}
+        stg_display={'display':'none'}
+    else:
+        stage_value = len(data[data.groups == "stage"]) / len(data) * 100
+        other = "{:.2f}".format(stage_value) + "%"
+        pr_display = {'display': 'none'}
+        stg_display = {'display': 'block'}
+
 
     result = dict({
         "cluster": [],
@@ -1051,25 +1252,33 @@ def update_cluster_rate(clickData, cluster_method):
         font=dict(color="#CCCCCC", size="10"), orientation="h", bgcolor="rgba(0,0,0,0)"
     )
 
-    figure = dict(data=data_bar, layout=layout_pie)
+    pie_figure = dict(data=data_bar, layout=layout_pie)
 
     result2=""
     for group in set(data.groups):
         num = len(data[data.groups == group])
         result2 = result2 + "{} % belong to group {}. ".format(num / len(data) * 100, group)
 
-    return result0,stable,prefer,complete,figure
+    return result0, pr_display,stg_display, stable,other,other,pie_figure
 
 
 @app.callback(
     Output('basic-interactions', 'figure'),
-    [Input('bar_chart', 'clickData'), Input("argument-dimensional-reduction","value"), Input("clustering-method","value")])
+    [Input('bar_chart', 'clickData'), Input("argument-dimensional-reduction","value"), Input("clustering-method","value"), Input("data_semantic_selector", "value")])
 
-def update_graph(clickData, dimensional_reduction, cluster_method="db"):
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0:
-        process_data=pd.read_pickle(PROCESSED_DIRECTORY+"processed_data.pkl")
+def update_graph(clickData, dimensional_reduction, cluster_method, semantic):
+
+    if os.listdir(PROCESSED_DIRECTORY):  # load and processed
+        if semantic == "pr":
+            process_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+        else:
+            process_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
     else:
-        process_data=df
+        if semantic == "pr":
+            process_data = df
+        else:
+            process_data = stage_df
+
     layout_scatter = copy.deepcopy(layout)
     layout_scatter["title"]="Distribution of Selected Argument"
     layout_scatter["clickmode"]= 'event+select'
@@ -1124,15 +1333,127 @@ def update_graph(clickData, dimensional_reduction, cluster_method="db"):
         'layout': layout_scatter
     }
 
+@app.callback([Output('3d_scatter_cluster', 'figure'),Output('3d_scatter_group', 'figure')],
+            [Input("data_semantic_correlation_3d", "value"), Input("reduction_method","value"), Input("clustering-method","value"),]
+              )
+def displayClick(semantic, reduction_method, cluster_method):
+    if os.listdir(PROCESSED_DIRECTORY):  # load and processed
+        if semantic == "pr":
+            data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+        else:
+            data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
+    else:
+        if semantic == "pr":
+            data = df
+        else:
+            data = stage_df
+
+    if reduction_method=="svd":
+        x_axe="svd_position_x"
+        y_axe="svd_position_y"
+    else:
+        x_axe = "tsne_position_x"
+        y_axe = "tsne_position_y"
+    cluster_label = cluster_method + "_cluster_label"
+    cluster_set = data[cluster_label].unique()
+    # fig = go.Figure(data=[go.Scatter3d(
+    #     x=data[x_axe],
+    #     y=data[y_axe],
+    #     z=[len(set(s)) for s in data["arg"]],
+    #     text=["clusters: {}".format(x) for x in data[cluster_label]],
+    #     mode='markers',
+    #     marker=dict(
+    #         size=12,
+    #         color=data[cluster_label],  # set color to an array/list of desired values
+    #         colorscale='Viridis',  # choose a colorscale
+    #         opacity=0.8
+    #     )
+    # ),
+    #
+    # ],
+    # )processed_data[processed_data[cluster_label] == cls][x_axe]
+    fig = go.Figure(data=[go.Scatter3d(
+            x=data[data[cluster_label]==cls][x_axe],
+            y=data[data[cluster_label]==cls][y_axe],
+            z=[len(set(s)) for s in data[data[cluster_label]==cls]["arg"]],
+            text=["groups: {}".format(x) for x in data[data[cluster_label]==cls]["groups"]],
+            mode='markers',
+            name="cluster"+str(cls),
+            marker=dict(
+                size=6,
+                color=cls,  # set color to an array/list of desired values
+                colorscale='Viridis',  # choose a colorscale
+                opacity=0.8
+            )
+        ) for cls in cluster_set
+        ],
+        layout=go.Layout(title=dict(
+            text='Clusters Distribution',
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            font=dict(
+                size=20,
+            )
+        ),
+            autosize=False,
+            width=850,
+            height=850,
+        )
+    )
+
+    group_set = data["groups"].unique()
+    fig2 = go.Figure(data=[go.Scatter3d(
+        x=data[data["groups"] == cls][x_axe],
+        y=data[data["groups"] == cls][y_axe],
+        z=[len(set(s)) for s in data[data["groups"] == cls]["arg"]],
+        text=["groups: {}".format(x) for x in data[data["groups"] == cls]["groups"]],
+        mode='markers',
+        name="group " + str(cls),
+        marker=dict(
+            size=6,
+            #color=cls,  # set color to an array/list of desired values
+            colorscale='Viridis',  # choose a colorscale
+            opacity=0.8
+        )
+    ) for cls in group_set
+    ],
+    layout=go.Layout( title=dict(
+                                text='Groups Distribution',
+                                xref="paper",
+                                yref="paper",
+                                x=0.5,
+                                font=dict(
+                                    size=20,
+                                )
+                        ),
+                        autosize=False,
+                        width=850,
+                        height=850,
+    ))
+    # fig2.update_layout(
+    #
+    #     autosize=False,
+    #     width=850,
+    #     height=850,
+    # )
+    return fig,fig2
 
 
 @app.callback(Output('correlation_hm', 'figure'),
-              [Input('btn-nclicks-1', 'n_clicks')])
-def displayClick(btn1):
-    if len(os.listdir(PROCESSED_DIRECTORY))!=0:
-        data_correlation=pd.read_pickle(PROCESSED_DIRECTORY+"correlation_matrix.pkl")
+              [Input('btn-nclicks-1', 'n_clicks'),Input('btn-nclicks-2', 'n_clicks'), Input("data_semantic_correlation", "value")])
+def displayClick(btn1, btn2 , semantic):
+
+    if os.listdir(PROCESSED_DIRECTORY):  # load and processed
+        if semantic == "pr":
+            data_correlation = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_correlation_matrix.pkl")
+        else:
+            data_correlation = pd.read_pickle(PROCESSED_DIRECTORY + "stage_correlation_matrix.pkl")
     else:
-        data_correlation=correlation_matrix
+        if semantic == "pr":
+            data_correlation = correlation_matrix
+        else:
+            data_correlation = stage_correlation_matrix
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
     layout_matrix =  {
                             'height': 750,
@@ -1140,14 +1461,20 @@ def displayClick(btn1):
                                 "text":"Correlation Coefficient Matrix",
                                 "font":dict(family="Open Sans, sans-serif", size=30, color="#515151"),
                         },
-                        "font":dict(family="Open Sans, sans-serif", size=13),
+                        "font":dict(family="Open Sans, sans-serif", size=15),
                         "automargin":True,
                         }
 
     if btn1%2:
-        distances = np.sqrt((1 - data_correlation) / 2)
+
+        c = data_correlation.copy()
+        for idx, raw in c.iterrows():
+            for x in raw.index:
+                c.loc[idx, x] = abs(raw[x])
+
+        distances = np.sqrt((1 - c) / 2)
         ordered_dist_mat, res_order, res_linkage = compute_serial_matrix(distances.values, method='single')
-        new_order = [data_correlation.index[i] for i in res_order]
+        new_order = [c.index[i] for i in res_order]
 
         ordered_correlation_matrix = data_correlation.reindex(index=new_order, columns=new_order)
 
@@ -1157,10 +1484,10 @@ def displayClick(btn1):
                     "x" : [str(x)+"arg" for x in new_order],
                     "y" : [str(x)+"arg" for x in new_order],
                     "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]], #[[ 0, WELL_COLOR_new[0]], [ 1, WELL_COLOR_new[3]]],
-                    "reversescale" : True,
+                    #"reversescale" : False,
                     "showscale" : True,
-                    #"xgap" : 0.1,
-                    #"ygap" : 0.1,
+                    "xgap" : 1,
+                    "ygap" : 1,
                     "colorbar": {
                         "len":0.6,
                         "ticks":"",
@@ -1178,6 +1505,40 @@ def displayClick(btn1):
                 }]
         figure = dict(data=data, layout=layout_matrix)
         return figure
+    elif btn2%2:
+        all_new_order=innovative_correlation_clustering(data_correlation)
+        new_test = data_correlation.reindex(index=all_new_order, columns=all_new_order)
+        return {
+            "data": [
+                {
+                    "type": "heatmap",
+                    "z": new_test.to_numpy(),
+                    "x": [str(x) + "arg" for x in new_test.columns],
+                    "y": [str(x) + "arg" for x in new_test.index],
+                    "colorscale": [[0, "#2F8FD2"], [1, "#ecae50"]],
+                    # "reversescale" : True,
+                    "showscale": True,
+                    "xgap": 1,
+                    "ygap": 1,
+                    "colorbar": {
+                        "len": 0.6,
+                        "ticks": "",
+                        "title": "Correlation",
+                        "titlefont": {
+                            "family": "Gravitas One",
+                            "color": "#515151"
+                        },
+                        "thickness": 30,
+                        "tickcolor": "#515151",
+                        "tickfont": {
+                            "family": "Open Sans, sans serif", "color": "#515151"},
+                        "tickvals": [-1, 1],
+                    },
+                }
+            ],
+            "layout": layout_matrix
+        }
+
     else:
         return {
                         "data":[
@@ -1189,8 +1550,8 @@ def displayClick(btn1):
                             "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]],
                             #"reversescale" : True,
                             "showscale" : True,
-                            #"xgap" : 0.1,
-                            #"ygap" : 0.1,
+                            "xgap" : 1,
+                            "ygap" : 1,
                             "colorbar": {
                                 "len":0.6,
                                 "ticks":"",
