@@ -4,20 +4,23 @@ from numpy import array
 from sklearn.cluster import KMeans,DBSCAN
 from sklearn.manifold import TSNE
 from sklearn.decomposition import TruncatedSVD
-import os
+from os import listdir,unlink
+from os.path import isfile, join
 from zipfile import ZipFile
 from pathlib import Path
 
 def clean_folder(folder_path):
-    if len(os.listdir(folder_path))!=0:
-        for the_file in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, the_file)
+    if len(listdir(folder_path))!=0:
+        removed=[]
+        for the_file in listdir(folder_path):
+            file_path = join(folder_path, the_file)
             try:
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
+                if isfile(file_path):
+                    unlink(file_path)
+                    removed.append(the_file)
             except Exception as e:
                 print(e)
-
+    return removed
 def change_to_hotpot(answer, item):
       returnlist = [0]*len(item)
       for ele in answer:

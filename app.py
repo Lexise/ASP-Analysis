@@ -420,7 +420,7 @@ main_page =     html.Div([
                 html.Div(
                     [
 
-                        dcc.Upload([html.Button("View Processed Data" ,id="view_button",style={"color":"#FFFF","backgroundColor":"#2F8FD2"})],id="view-processed-button"),
+                        dcc.Upload([html.Button("View Processed Data" ,id="view_button",style={"color":"#FFFF","backgroundColor":"#2F8FD2"})],id="view-processed-button",multiple=True),
 
                         dcc.ConfirmDialog(
                             id='confirm',
@@ -607,7 +607,7 @@ main_page =     html.Div([
         html.Hr(),
         html.Div([
 
-            dcc.Upload([html.Button(children='Upload File',id="upload_button")], id="upload-data",style={'width': '13%','marginRight': '2.5%'} ),
+            dcc.Upload([html.Button(children='Upload File',id="upload_button")], id="upload-data",style={'width': '13%','marginRight': '2.5%'},multiple=True ),
             dcc.Input(id='eps', type='text', value='Eps',style={'width': '10%','marginRight': '0.5%','marginLeft': '4%'}),
             dbc.Tooltip("DBscan  parameter, specifies the distance between two points to be considered within one cluster.suggested a decimal in range[1,3]", target="eps"),
             dcc.Input(id='minpts', type='text', value='MinPts',style={'width': '10%','marginRight': '0.5%'}),
@@ -626,7 +626,6 @@ main_page =     html.Div([
                 html.Div([
                     html.P("Upload",className="dcc_control",style={"width":"91%",'textAlign': 'left'}),
                     html.Button(id='clear-upload', n_clicks=0, children='Clear',style={'width': '12%','font-size':'11px','textAlign': 'right'}),
-                    html.Button(id='reset_click', n_clicks=0, style={'display':'none'})
 
                 ],
                     className="row flex-display",
@@ -803,21 +802,23 @@ def save_file(name, content, dir):
     with open(os.path.join(dir, name), "wb") as fp:
         fp.write(base64.decodebytes(data))
 
+
+
 @app.callback(
     Output("file-list", "children"),
-    [Input("upload-data", "filename"), Input("upload-data", "contents"),Input("clear-upload","n_clicks"), Input("upload_button","n_clicks"),Input('signal', 'children')]
+    [Input("clear-upload","n_clicks"), Input('signal', 'children'),Input('upload-data', 'filename'),],
+    [State('upload-data', 'contents')]
 )
-def update_output(uploaded_filenames, uploaded_file_contents,clear_click, n_click,children ):
+def update_output(clear_click,children,uploaded_filenames, uploaded_file_contents ):
     """Save uploaded files and regenerate the file list."""
-
-    if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and clear_click==1 and n_click==None:
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+    if len(os.listdir(UPLOAD_DIRECTORY)) != 0 and 'clear-upload' in changed_id:#and n_click==None:
             clean_folder(UPLOAD_DIRECTORY)
-
             return ""
 
     if uploaded_filenames is not None and uploaded_file_contents is not None:
-        for name, data in zip([uploaded_filenames], [uploaded_file_contents]):
-            save_file(name, data, UPLOAD_DIRECTORY)
+            for name, data in zip(uploaded_filenames, uploaded_file_contents):#[],[]
+                save_file(name, data, UPLOAD_DIRECTORY)
 
     files = uploaded_files(UPLOAD_DIRECTORY)
     if len(files) == 0:
@@ -1115,21 +1116,22 @@ def show_confirm(value):
 @app.callback(Output('hidden-div', 'figure'),
               [Input('view-processed-button', 'contents'),Input("view_button","n_clicks")],
               [State('view-processed-button', 'filename')])
-def update_output(content, n_click, name):
-    if content is None:
+def update_output(contents, n_click, name):
+    if contents is None:
         return None
     #for content, name, date in zip(list_of_contents, list_of_names, list_of_dates):
         # the content needs to be split. It contains the type and the real content
-    content_type, content_string = content.split(',')
-    # Decode the base64 string
-    content_decoded = base64.b64decode(content_string)
-    # Use BytesIO to handle the decoded content
-    zip_str = io.BytesIO(content_decoded)
-    # Now you can use ZipFile to take the BytesIO output
-    zip_obj = ZipFile(zip_str, 'r')
-    zip_obj.extractall(PROCESSED_DIRECTORY)
+    for content in contents:
+        content_type, content_string = content.split(',')
+        # Decode the base64 string
+        content_decoded = base64.b64decode(content_string)
+        # Use BytesIO to handle the decoded content
+        zip_str = io.BytesIO(content_decoded)
+        # Now you can use ZipFile to take the BytesIO output
+        zip_obj = ZipFile(zip_str, 'r')
+        zip_obj.extractall(PROCESSED_DIRECTORY)
 
-    if n_click>=2 and n_click%2==0 and len(os.listdir(PROCESSED_DIRECTORY))==12:
+    if  len(os.listdir(PROCESSED_DIRECTORY))==12: #n_click>=2 and n_click%2==0 and
         files = zip_obj.namelist()
         return files
     else:
@@ -1486,8 +1488,8 @@ def displayClick(btn1, btn2 , semantic):
                     "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]], #[[ 0, WELL_COLOR_new[0]], [ 1, WELL_COLOR_new[3]]],
                     #"reversescale" : False,
                     "showscale" : True,
-                    "xgap" : 1,
-                    "ygap" : 1,
+                    #"xgap" : 1,
+                    #"ygap" : 1,
                     "colorbar": {
                         "len":0.6,
                         "ticks":"",
@@ -1518,8 +1520,8 @@ def displayClick(btn1, btn2 , semantic):
                     "colorscale": [[0, "#2F8FD2"], [1, "#ecae50"]],
                     # "reversescale" : True,
                     "showscale": True,
-                    "xgap": 1,
-                    "ygap": 1,
+                    # "xgap": 1,
+                    # "ygap": 1,
                     "colorbar": {
                         "len": 0.6,
                         "ticks": "",
@@ -1550,8 +1552,8 @@ def displayClick(btn1, btn2 , semantic):
                             "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]],
                             #"reversescale" : True,
                             "showscale" : True,
-                            "xgap" : 1,
-                            "ygap" : 1,
+                            # "xgap" : 1,
+                            # "ygap" : 1,
                             "colorbar": {
                                 "len":0.6,
                                 "ticks":"",
