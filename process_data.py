@@ -4,7 +4,7 @@ from numpy import array
 from sklearn.cluster import KMeans,DBSCAN
 from sklearn.manifold import TSNE
 from sklearn.decomposition import TruncatedSVD
-from os import listdir,unlink
+from os import listdir,unlink,walk
 from os.path import isfile, join
 from zipfile import ZipFile
 from pathlib import Path
@@ -214,11 +214,11 @@ def process_data(dir, arguments_file, answer_sets, eps, minpts, n_cluster):
         zip_dir= str(path.parent) +"/processed_zip/"
         with ZipFile(zip_dir + zipname, 'w') as zipObj:
             # Iterate over all the files in directory
-            for folderName, subfolders, filenames in os.walk(dir):
+            for folderName, subfolders, filenames in walk(dir):
                 for filename in filenames:
                     if filename.find(semantic)==0:
                         # create complete filepath of file in directory
-                        filePath = os.path.join(folderName, filename)
+                        filePath = join(folderName, filename)
                         # Add file to zip
                         zipObj.write(filePath, arcname=filename)
 
