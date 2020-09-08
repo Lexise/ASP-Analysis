@@ -89,6 +89,7 @@ layout = dict(
     paper_bgcolor="#F9F9F9",
     legend=dict(font=dict(size=10), orientation="h"),
     #title="",
+    showlegend=True,
     titlefont= {"size": 32},
     mapbox=dict(
         accesstoken=mapbox_access_token,
@@ -117,20 +118,20 @@ layout = dict(
 # print(test)
 
 
-dataset_all=pd.read_pickle('long-island-railroad_argument_frequency.pkl')
-stage_dataset_all=pd.read_pickle('stage_long-island-railroad_argument_frequency.pkl')
-df = pd.read_pickle('long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
-stage_df=pd.read_pickle('stage_long-island-railroad_tsne_epts=2.4_minp=10_cluster=4.pkl')
-report_cluster_km=pd.read_pickle("km_long-island-railroad_cluster_report.pkl")
-stage_report_cluster_km=pd.read_pickle("stage_km_long-island-railroad_cluster_report.pkl")
-report_cluster_db=pd.read_pickle("db_long-island-railroad_cluster_report.pkl")
-stage_report_cluster_db=pd.read_pickle("stage_db_long-island-railroad_cluster_report.pkl")
+dataset_all=pd.read_pickle(DEFAULT_DATA+'prefer_bar_data.pkl')
+stage_dataset_all=pd.read_pickle(DEFAULT_DATA+'stage_bar_data.pkl')
+df = pd.read_pickle(DEFAULT_DATA+'prefer_processed_data.pkl')
+stage_df=pd.read_pickle(DEFAULT_DATA+'stage_processed_data.pkl')
+report_cluster_km=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
+stage_report_cluster_km=pd.read_pickle(DEFAULT_DATA+"stage_km_cluster_feature.pkl")
+report_cluster_db=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
+stage_report_cluster_db=pd.read_pickle(DEFAULT_DATA+"stage_db_cluster_feature.pkl")
 
-report_groups=pd.read_pickle("long-island-railroad_groups_report.pkl")
-stage_report_groups=pd.read_pickle("stage_long-island-railroad_groups_report.pkl")
-correlation_matrix=pd.read_pickle("answer2_correlation_matrix.pkl")
+report_groups=pd.read_pickle(DEFAULT_DATA+"prefer_group_feature.pkl")
+stage_report_groups=pd.read_pickle(DEFAULT_DATA+"stage_group_feature.pkl")
+correlation_matrix=pd.read_pickle(DEFAULT_DATA+"prefer_correlation_matrix.pkl")
 
-stage_correlation_matrix=pd.read_pickle("stage_answer2_correlation_matrix.pkl")
+stage_correlation_matrix=pd.read_pickle(DEFAULT_DATA+"stage_correlation_matrix.pkl")
 
 cache = Cache()
 cache.init_app(app.server, config=cache_config)
@@ -637,7 +638,7 @@ main_page =     html.Div([
 
             html.Div([
                 html.P("Processed"),
-                html.Ul(id="processed-list", children=get_file_name(PROCESSED_DIRECTORY))
+                html.Ul(id="processed-list", children=get_file_name(ZIP_DIRECTORY))
             ],
                 className="pretty_container seven columns")
         ],
@@ -734,10 +735,13 @@ app.layout = html.Div([
 def global_store(eps, minpts, n_cluster):
     # simulate expensive query
     files = uploaded_files(UPLOAD_DIRECTORY)
+    question=""
+    pr_answer=""
+    stg_answer=""
     if len(files)>1:
         for filename in files:
             try:
-                if 'apx' in filename:
+                if filename.endswith('.apx'):
                     # Assume that the user uploaded a CSV file
                     question = filename
                 elif 'EE-PR' in filename:
@@ -751,13 +755,15 @@ def global_store(eps, minpts, n_cluster):
                     'There was an error processing this file.'
                 ])
         zipname=files[0].strip("apx")+"zip"
-        start_time = time.time()
-        print("start process")
-        process_data(PROCESSED_DIRECTORY,UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+pr_answer,eps, minpts, n_cluster)
-        process_data(PROCESSED_DIRECTORY, UPLOAD_DIRECTORY + question, UPLOAD_DIRECTORY + stg_answer, eps, minpts, n_cluster)
+        if question!="" and pr_answer!="" and stg_answer!="":
+            start_time = time.time()
+            print("start process")
+            process_data(PROCESSED_DIRECTORY,UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+pr_answer,eps, minpts, n_cluster)
+            process_data(PROCESSED_DIRECTORY, UPLOAD_DIRECTORY + question, UPLOAD_DIRECTORY + stg_answer, eps, minpts, n_cluster)
 
-        print("get processed data", time.time() - start_time)
-
+            print("get processed data", time.time() - start_time)
+        else:
+            print("the input file is not correct.")
 
 
 # @app.callback(
@@ -784,8 +790,7 @@ def compute_value( n_clicks, eps, minpts, n_cluster):
                 #     clean_folder(PROCESSED_DIRECTORY)
                 global_store(eps, minpts, n_cluster)
                 return "finish"
-            else:
-                return ""
+            return ""
        #already  process, no need to pass data again
     # global_store(value)
     # return value
@@ -971,7 +976,7 @@ def generate_tabs( content, reduction1, reduction2, semantic1,  method, table_me
         )
 
     if len(cluster_table) == 0:
-        table2=html.H1("No cluster Feature")
+        table2=html.H5("No cluster Feature")
     else:
         table2=dash_table.DataTable(
             data=cluster_table.to_dict('records'),
@@ -1141,9 +1146,9 @@ def update_output(contents, n_click, name):
               [ Input('signal', 'children'),Input('hidden-div', 'figure'), Input('confirm', 'submit_n_clicks')])#
 def update_output(children1, children2, n_click):
     if  children2:
-        [html.Li(file_download_link(filename)) for filename in children2]
-    if n_click or children1:
-        return  get_file_name(ZIP_DIRECTORY)
+        return [html.Li(file_download_link(filename)) for filename in children2]
+
+    return  get_file_name(ZIP_DIRECTORY)
 
 
 
@@ -1378,7 +1383,7 @@ def displayClick(semantic, reduction_method, cluster_method):
             x=data[data[cluster_label]==cls][x_axe],
             y=data[data[cluster_label]==cls][y_axe],
             z=[len(set(s)) for s in data[data[cluster_label]==cls]["arg"]],
-            text=["groups: {}".format(x) for x in data[data[cluster_label]==cls]["groups"]],
+            text=["cluster: {}".format(x) for x in data[data[cluster_label]==cls][cluster_label]],
             mode='markers',
             name="cluster"+str(cls),
             marker=dict(
@@ -1401,6 +1406,7 @@ def displayClick(semantic, reduction_method, cluster_method):
             autosize=False,
             width=850,
             height=850,
+            showlegend=True,
         )
     )
 
@@ -1432,6 +1438,7 @@ def displayClick(semantic, reduction_method, cluster_method):
                         autosize=False,
                         width=850,
                         height=850,
+                        showlegend=True,
     ))
     # fig2.update_layout(
     #

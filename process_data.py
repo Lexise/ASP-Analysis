@@ -20,7 +20,11 @@ def clean_folder(folder_path):
                     removed.append(the_file)
             except Exception as e:
                 print(e)
-    return removed
+        return removed
+    else:
+        return []
+
+
 def change_to_hotpot(answer, item):
       returnlist = [0]*len(item)
       for ele in answer:
@@ -273,14 +277,19 @@ def find_feature_cluster(itemlist, data, cluster_algorithm):  #clustered data
             if set(element).issubset(set(raw.arg)):
                 flag = 0
                 print("{} is not character for cluster {}".format(element, current_cluster))
+
                 differences[index]=[]
                 break
         if flag:
             print("{} is character for cluster {}".format(element, current_cluster))
+
     sum_diff = pd.DataFrame({
         "cluster": clusters,
         "argument_combination_feature": ["(" + ", ".join(str(x) for x in a) + ")" for a in differences],
     })
+    for idx, raw in sum_diff.iterrows():
+        if raw.argument_combination_feature == "()":
+            sum_diff.drop([idx], inplace=True)
     return sum_diff
 
 def find_feature_group(itemlist,data):
