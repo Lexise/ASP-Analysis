@@ -8,6 +8,7 @@ from os import listdir,unlink,walk
 from os.path import isfile, join
 from zipfile import ZipFile
 from pathlib import Path
+#import numpy
 
 def clean_folder(folder_path):
     if len(listdir(folder_path))!=0:
