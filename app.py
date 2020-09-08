@@ -393,7 +393,7 @@ main_page =     html.Div([
                         html.A(
                             html.Button("Get Default Data", id="get_default_data",
                                         style={"color":"#FFFF","backgroundColor":"#2F8FD2"}),
-                            href="https://github.com/Lexise/ASP-Analysis/tree/master/data/default_data",
+                            href="https://github.com/Lexise/ASP-Analysis/tree/master/data/default_raw_data",
                         )
                     ],
                     #className="one-fifth column",
