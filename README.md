@@ -4,6 +4,7 @@ A Dash application that uses data mining algorithms (KMeans, DBscan clustering) 
 ## Prerequisites
 
 Python 3.6 or later version
+Microsoft Visual C++ 14.0
 
 ## Getting Started
 
