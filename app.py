@@ -8,6 +8,7 @@ import dash_html_components as html
 import pandas as pd
 import random
 import io
+import plotly.express as px
 from zipfile import ZipFile
 from urllib.parse import quote as urlquote
 import json
@@ -17,9 +18,9 @@ import os
 import plotly.graph_objects as go
 from flask_caching import Cache
 from flask import Flask, send_from_directory
-from clustering_correlation import compute_serial_matrix,innovative_correlation_clustering
+from clustering_correlation import compute_serial_matrix,innovative_correlation_clustering,my_optimal_leaf_ordering,abs_optimal_leaf_ordering
 import numpy as np
-from process_data import  process_data,clean_folder
+from process_data import  process_data,clean_folder,f_comma
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 import copy
 from dash.dependencies import Input, Output, State, ClientsideFunction
@@ -116,23 +117,27 @@ layout = dict(
 # with open(UPLOAD_DIRECTORY+'long-island-railroad_20090825_0512.gml.20.apx', 'r') as file:
 #     test = file.read()
 # print(test)
+if  len(os.listdir(PROCESSED_DIRECTORY))==12:
+    loaded_processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+else:
+    loaded_processed_data=pd.read_pickle(DEFAULT_DATA + 'prefer_bar_data.pkl')
+if len(os.listdir(DEFAULT_DATA))==12:
+    dataset_all=pd.read_pickle(DEFAULT_DATA+'prefer_bar_data.pkl')
+    stage_dataset_all=pd.read_pickle(DEFAULT_DATA+'stage_bar_data.pkl')
+    df = pd.read_pickle(DEFAULT_DATA+'prefer_processed_data.pkl')
+    stage_df=pd.read_pickle(DEFAULT_DATA+'stage_processed_data.pkl')
+    report_cluster_km=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
+    stage_report_cluster_km=pd.read_pickle(DEFAULT_DATA+"stage_km_cluster_feature.pkl")
+    report_cluster_db=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
+    stage_report_cluster_db=pd.read_pickle(DEFAULT_DATA+"stage_db_cluster_feature.pkl")
 
+    report_groups=pd.read_pickle(DEFAULT_DATA+"prefer_group_feature.pkl")
+    stage_report_groups=pd.read_pickle(DEFAULT_DATA+"stage_group_feature.pkl")
+    correlation_matrix=pd.read_pickle(DEFAULT_DATA+"prefer_correlation_matrix.pkl")
 
-dataset_all=pd.read_pickle(DEFAULT_DATA+'prefer_bar_data.pkl')
-stage_dataset_all=pd.read_pickle(DEFAULT_DATA+'stage_bar_data.pkl')
-df = pd.read_pickle(DEFAULT_DATA+'prefer_processed_data.pkl')
-stage_df=pd.read_pickle(DEFAULT_DATA+'stage_processed_data.pkl')
-report_cluster_km=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
-stage_report_cluster_km=pd.read_pickle(DEFAULT_DATA+"stage_km_cluster_feature.pkl")
-report_cluster_db=pd.read_pickle(DEFAULT_DATA+"prefer_db_cluster_feature.pkl")
-stage_report_cluster_db=pd.read_pickle(DEFAULT_DATA+"stage_db_cluster_feature.pkl")
-
-report_groups=pd.read_pickle(DEFAULT_DATA+"prefer_group_feature.pkl")
-stage_report_groups=pd.read_pickle(DEFAULT_DATA+"stage_group_feature.pkl")
-correlation_matrix=pd.read_pickle(DEFAULT_DATA+"prefer_correlation_matrix.pkl")
-
-stage_correlation_matrix=pd.read_pickle(DEFAULT_DATA+"stage_correlation_matrix.pkl")
-
+    stage_correlation_matrix=pd.read_pickle(DEFAULT_DATA+"stage_correlation_matrix.pkl")
+else:
+    print("wrong default data")
 cache = Cache()
 cache.init_app(app.server, config=cache_config)
 
@@ -286,9 +291,9 @@ argument_analysis=html.Div([
                       dcc.RangeSlider(
                           id='my-range-slider',
                           min=0,
-                          max=len(dataset_all),
+                          max=len(loaded_processed_data),
                           step=1,
-                          value=[5, int(0.5 * len(dataset_all))]
+                          value=[int(0.2 * len(loaded_processed_data)), int(0.5 * len(loaded_processed_data))]
                       ),
                       ],
                      className="pretty_container seven columns",
@@ -355,12 +360,18 @@ correlation_page= html.Div([
 
 #html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '49%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}),
                 html.Div([
-                    html.Button('Clustering Method 1',
+                    html.Button('HRP',
                                 style={'font-size': '14px','marginLeft': '2%', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
                                 id='btn-nclicks-1', n_clicks=0),
-                    html.Button('Clustering Method 2',
+                    html.Button('Revised HRP',
                                 style={'font-size': '14px', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
                                 id='btn-nclicks-2', n_clicks=0),
+                    html.Button('OLO',
+                                style={'font-size': '14px', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
+                                id='btn-nclicks-3', n_clicks=0),
+                    html.Button('Revised OLO',
+                                style={'font-size': '14px', 'marginRight': '2%',"color": "#FFFF", "backgroundColor": "#2F8FD2"},
+                                id='btn-nclicks-4', n_clicks=0),
                     html.P("Presented semantic extension:", style={"font-weight": "bold"}, className="dcc_control"),
 
                     dcc.RadioItems(
@@ -550,24 +561,39 @@ main_page =     html.Div([
                     id="scatter_groups",
 
                 ),
+                html.Div([
+                    html.Div([
+                        html.Span("Semantics:", style={"font-weight": "bold"}),
+                        dcc.RadioItems(
+                            id="semantic-method2",
+                            options=[
+                                        {"label": "PREFER", "value": "pr"},
+                                        {"label": "STAGE", "value": "stg"},
+                                    ],
+                            labelStyle={"display": "inline-block"},
+                            value="pr",
+                        )],
+                        style = {'width': '30%'},
+                        ),
 
+                    html.Div(children=[
+                        html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
+                        dcc.RadioItems(
+                            id="dimensional-reduction2",
+                            options=[
+                                {"label": "Tsne ", "value": "tsne"},
+                                {"label": "SVD", "value": "svd"},
+                            ],
+                            labelStyle={"display": "inline-block"},
+                            value="tsne",
+                        ),],
+                        style={'width': '30%'}),
 
-                html.Div(children=[
-                    html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
-                    dcc.RadioItems(
-                        id="dimensional-reduction2",
-                        options=[
-                            {"label": "Tsne ", "value": "tsne"},
-                            {"label": "SVD", "value": "svd"},
-                        ],
-                        labelStyle={"display": "inline-block"},
-                        value="tsne",
-                    ),
-                ],
-                    style={'width': '30%'},
-
+                    ],
+                    className="row flex-display"
                 ),
-            ]),
+                ]),
+
             dcc.Tab(label='Feature Report',style={ 'fontWeight': 'bold'}, children=[
                 html.Div([
                     html.Div(id="table1",
@@ -578,31 +604,53 @@ main_page =     html.Div([
                             className="pretty_container seven columns"
                     )
                 #html.Div(id="orders_table", className="row table-orders"),
-                ],
-                 className="row flex-display"
+                    ],
+                    className="row flex-display"
                 ),
                 html.Div([
-                    html.Span("Cluster Algorithm:", style={"font-weight": "bold"}),
-                    dcc.RadioItems(
-                        id="clustering-method-table",
-                        options=[
-                            {"label": "DBscan ", "value": "db"},
-                            {"label": "Kmeans", "value": "km"},
+                    html.Div([
+                        html.Span("Semantics:", style={"font-weight": "bold"}),
+                        dcc.RadioItems(
+                            id="semantic-method3",
+                            options=[
+                                        {"label": "PREFER", "value": "pr"},
+                                        {"label": "STAGE", "value": "stg"},
+                                    ],
+                            labelStyle={"display": "inline-block"},
+                            value="pr",
+                            )
                         ],
-                        labelStyle={"display": "inline-block"},
-                        value="db",
-                    )],
-                  ),
-                ]),
+                        style = {'width': '30%'},
+                        ),
+                    html.Div([
+                        html.Span("Cluster Algorithm:", style={"font-weight": "bold"}),
+                        dcc.RadioItems(
+                            id="clustering-method-table",
+                            options=[
+                                {"label": "DBscan ", "value": "db"},
+                                {"label": "Kmeans", "value": "km"},
+                            ],
+                            labelStyle={"display": "inline-block"},
+                            value="db",
+                        )
+                    ],
+                    style={'width': '30%'},),
+                    ],
+                className="row flex-display"),
             ]),
-
-
+        ])
         ],
         className = "pretty_container"),
+        # html.Div([
+        #     dcc.Markdown("""
+        #            **Click Data**
+        #
+        #            Click on points in the graph.
+        #        """),
+        #     html.Pre(id='click-data', style= {'border': 'thin lightgrey solid','overflowX': 'scroll'}),
+        # ], className='three columns'),
 
-
-
-        dcc.Link(html.Button('Argument Analysis',style={'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
+    dcc.Link(html.Button('Argument Analysis',style={'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
         dcc.Link(html.Button('3D Analysis',style={'marginLeft': '2%','width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-3d'),
         dcc.Link(html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-correlation'),
         html.Hr(),
@@ -654,8 +702,8 @@ main_page =     html.Div([
 ThreeD_analysis=html.Div([
 dcc.Link(html.Button('back'), href='/'),
 html.Div([
-    dcc.Graph(id="3d_scatter_cluster"),
-    dcc.Graph(id="3d_scatter_group"),
+    dcc.Graph(id="3d_scatter_cluster",className="row flex-display"),
+    dcc.Graph(id="3d_scatter_group", className="row flex-display"),
     ],
     className="row flex-display"
 ),
@@ -761,7 +809,7 @@ def global_store(eps, minpts, n_cluster):
             process_data(PROCESSED_DIRECTORY,UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+pr_answer,eps, minpts, n_cluster)
             process_data(PROCESSED_DIRECTORY, UPLOAD_DIRECTORY + question, UPLOAD_DIRECTORY + stg_answer, eps, minpts, n_cluster)
 
-            print("get processed data", time.time() - start_time)
+            print("(whole)get processed data", time.time() - start_time)
         else:
             print("the input file is not correct.")
 
@@ -853,38 +901,30 @@ def display_page(pathname):
         return main_page
 
 
-@app.callback([Output('scatter_cluster', 'figure'), Output('scatter_groups', 'figure'), Output('table1', 'children'),Output('table2', 'children')],
-              [ Input('signal', 'children'),Input("dimensional-reduction1", "value"),Input("dimensional-reduction2", "value"), Input("semantic-method","value"),
-                Input("clustering-method", "value"),Input("clustering-method-table", "value"),  Input('confirm', 'submit_n_clicks')])
-#@cache.memoize(TIMEOUT)
-def generate_tabs( content, reduction1, reduction2, semantic1,  method, table_method, n_click):#processed_data, table1_data,table2_data ):
-    if  os.listdir(PROCESSED_DIRECTORY) or n_click:#load and processed
+# @app.callback(
+#     Output('click-data', 'children'),
+#     [Input('scatter_cluster', 'clickData')])
+# def display_click_data(clickData):
+#     print(clickData)
+#     return json.dumps(clickData, indent=2)
+
+@app.callback(Output('scatter_cluster', 'figure'),
+              [ Input('signal', 'children'),Input("dimensional-reduction1", "value"), Input("semantic-method","value"),
+                Input("clustering-method", "value"),  Input('confirm', 'submit_n_clicks')])
+
+def generate_tabs1( content, reduction1, semantic1,  method, n_click):#processed_data, table1_data,table2_data ):
+    if  len(os.listdir(PROCESSED_DIRECTORY))==12 or n_click:#load and processed
         if semantic1 == "pr":
             processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
-            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_group_feature.pkl")
-            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY +"prefer_" +table_method + "_cluster_feature.pkl")
         else:
             processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
-            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_group_feature.pkl")
-            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_"+table_method+"_cluster_feature.pkl")
+
     else:
         if semantic1 =="pr":
             processed_data = df
-            group_table = report_groups
-            if table_method=="km":
-                cluster_table = report_cluster_km
-            else:
-                cluster_table = report_cluster_db
         else:
             processed_data = stage_df
-            group_table = stage_report_groups
-            if table_method=="km":
-                cluster_table = stage_report_cluster_km
-            else:
-                cluster_table = stage_report_cluster_db
-        # processed_data=pd.DataFrame.from_dict(content)
-        # group_table = pd.read_pickle(PROCESSED_DIRECTORY + "group_feature.pkl")
-        # cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + table_method+ "_cluster_feature.pkl")
+
     if reduction1=="svd":
         x_axe="svd_position_x"
         y_axe="svd_position_y"
@@ -893,109 +933,159 @@ def generate_tabs( content, reduction1, reduction2, semantic1,  method, table_me
         y_axe = "tsne_position_y"
 
     cluster_label = method + "_cluster_label"
-    cluster_set=processed_data[cluster_label].unique()
 
-    if len(cluster_set)>25:
-        r = lambda: random.randint(0, 255)
-        figure1={
-            'data': [
-                {
-                    'x': processed_data[processed_data[cluster_label] == cls][x_axe],
-                    'y': processed_data[processed_data[cluster_label] == cls][y_axe],
-                    'text': ["groups: {}".format(x) for x in processed_data[processed_data[cluster_label] == cls]['groups']],
-                    'name': cls,
-                    'mode': 'markers',
-                    'marker': {'size': 12,
-                               "color": '#%02X%02X%02X' % (r(),r(),r()),
-                               'line': {'width': 0.5, 'color': 'white'}
-
-                               }
-                } for cls in cluster_set
-
-            ],
-            'layout': layout
-        }
+    inputdata=processed_data.copy()
+    inputdata[cluster_label]=["Cluster "+str(a) for a in processed_data[cluster_label]]
+    clusters=inputdata[cluster_label].unique()
+    if len(clusters)<=52:
+        clusters_symbol=cluster_label
     else:
-        figure1 = {
-            'data': [
-                {
-                    'x': processed_data[processed_data[cluster_label] == cls][x_axe],
-                    'y': processed_data[processed_data[cluster_label] == cls][y_axe],
-                    'text': ["groups: {}".format(x) for x in processed_data[processed_data[cluster_label] == cls]['groups']],
-                    'name': cls,
-                    'mode': 'markers',
-                    'marker': {'size': 12,
-                               "color": WELL_COLOR_new[cls],
-                               'line': {'width': 0.5, 'color': 'white'}
+        clusters_symbol=None
+    figure1 = px.scatter(inputdata, x=x_axe, y=y_axe,  color=cluster_label, symbol=clusters_symbol,#symbol_sequence =[102]*len(inputdata),
 
-                               }
-                } for cls in cluster_set
-            ],
-            'layout': layout
-        }
-    if reduction2=="svd":
-        x_axe="svd_position_x"
-        y_axe="svd_position_y"
+                         hover_name=cluster_label,  hover_data={x_axe:False, # remove species from hover data
+                                                          y_axe: False,
+                                                          cluster_label:False,
+                         #'d':':.2f', # customize hover for column of y attribute
+                         'id':True,
+                         'arg':True, # add other column, default formatting
+                         'groups':True, # add other column, customized formatting
+
+                         # data not in dataframe, default formatting
+                         #'suppl_1': np.random.random(len(df)),
+                         # data not in dataframe, customized formatting
+                         #'suppl_2': (':.3f', np.random.random(len(df)))
+                        })
+
+
+    #figure1.update_traces() #remove hover  hovertemplate=None,
+    figure1.update_xaxes(showgrid=False,visible=False,zerolinecolor="Black")
+    figure1.update_yaxes(showgrid=False,zeroline=True,visible=False,zerolinecolor="black")
+    figure1.update_layout(  clickmode='event+select', plot_bgcolor='rgba(0,0,0,0)',legend_title_text='',autosize=True)
+
+    figure1 = go.Figure(figure1)
+
+
+    return figure1
+
+
+@app.callback(Output('scatter_groups', 'figure'),
+              [Input('signal', 'children'),
+               Input("dimensional-reduction2", "value"),
+               Input("semantic-method2", "value"),
+               Input("clustering-method", "value"),
+               Input('confirm', 'submit_n_clicks')])
+# @cache.memoize(TIMEOUT)
+def generate_tabs2(content, reduction2, semantic2, method, n_click):  # processed_data, table1_data,table2_data ):
+    if len(os.listdir(PROCESSED_DIRECTORY)) == 12 or n_click:  # load and processed
+        if semantic2 == "pr":
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+        else:
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
+
+
+    else:
+        if semantic2 == "pr":
+            processed_data = df
+        else:
+            processed_data = stage_df
+
+
+    if reduction2 == "svd":
+        x_axe = "svd_position_x"
+        y_axe = "svd_position_y"
     else:
         x_axe = "tsne_position_x"
         y_axe = "tsne_position_y"
-    figure2 = {
-        'data': [
-            {
-                'x': processed_data[processed_data.groups == cls][x_axe],
-                'y': processed_data[processed_data.groups == cls][y_axe],
-                'text': ["Clusters: {}".format(x) for x in processed_data[processed_data.groups == cls][cluster_label]],
-                'name': cls,
-                'mode': 'markers',
-                'marker': {'size': 12,
-                           'line': {'width': 0.5, 'color': 'white'}}
-            } for cls in processed_data['groups'].unique()
-        ],
-        'layout': layout
-    }
+    cluster_label = method + "_cluster_label"
+    figure2 = px.scatter(processed_data, x=x_axe, y=y_axe, color="groups",
+                         hover_name="groups", hover_data={x_axe: False,  # remove species from hover data
+                                                          y_axe: False,
+                                                          cluster_label: True,
+                                                          'id': True,
+                                                          'arg': True,  # add other column, default formatting
+                                                          'groups': False,  # add other column, customized formatting
+
+                                                          })
+    figure2.update_xaxes(showgrid=False, visible=False)
+    figure2.update_yaxes(showgrid=False, zeroline=True, visible=False, zerolinecolor="black")
+    figure2.update_layout(plot_bgcolor='rgba(0,0,0,0)', legend_title_text='Groups', autosize=True)
+    figure2 = go.Figure(figure2)
 
 
-    #table
-    if len(group_table)==0:
-        table1=html.H5("No group feature")
+    return figure2
+
+
+@app.callback([ Output('table1', 'children'),
+               Output('table2', 'children')],
+              [Input('signal', 'children'), Input("semantic-method3", "value"),
+               Input("clustering-method-table", "value"),
+               Input('confirm', 'submit_n_clicks')])
+# @cache.memoize(TIMEOUT)
+def generate_tabs3(content, semantic3,  table_method,
+                   n_click):  # processed_data, table1_data,table2_data ):
+    if len(os.listdir(PROCESSED_DIRECTORY)) == 12 or n_click:  # load and processed
+        if semantic3 == "pr":
+            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_group_feature.pkl")
+            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_" + table_method + "_cluster_feature.pkl")
+        else:
+            group_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_group_feature.pkl")
+            cluster_table = pd.read_pickle(PROCESSED_DIRECTORY + "stage_" + table_method + "_cluster_feature.pkl")
+
+    else:
+        if semantic3 == "pr":
+            group_table = report_groups
+            if table_method == "km":
+                cluster_table = report_cluster_km
+            else:
+                cluster_table = report_cluster_db
+        else:
+            group_table = stage_report_groups
+            if table_method == "km":
+                cluster_table = stage_report_cluster_km
+            else:
+                cluster_table = stage_report_cluster_db
+
+    # table
+    if len(group_table) == 0:
+        table1 = html.H5("No group feature")
     else:
         table1 = dash_table.DataTable(
             data=group_table.to_dict('records'),
             columns=[{"name": i, "id": i} for i in group_table.columns],
-            style_table = {
-                              'maxHeight': '300px',
-                              'overflowY': 'scroll'
-                          },
-            style_header = {
-                               'fontWeight': 'bold'
-                           },
-            style_cell = {
-                             'font_size': '20px',
-                             'text_align': 'center'
-                         },
+            style_table={
+                'maxHeight': '300px',
+                'overflowY': 'scroll'
+            },
+            style_header={
+                'fontWeight': 'bold'
+            },
+            style_cell={
+                'font_size': '20px',
+                'text_align': 'center'
+            },
         )
 
-    if len(cluster_table) == 0:
-        table2=html.H5("No cluster Feature")
+    if not len(cluster_table):
+        table2 = html.H5("No cluster Feature")
     else:
-        table2=dash_table.DataTable(
+        table2 = dash_table.DataTable(
             data=cluster_table.to_dict('records'),
             columns=[{"name": i, "id": i} for i in cluster_table.columns],
-            style_table = {
-                              'maxHeight': '300px',
-                              'overflowY': 'scroll'
-                          },
-            style_header = {
-                               'fontWeight': 'bold'
-                           },
-            style_cell = {
-                             'font_size': '20px',
-                             'text_align': 'center'
-                         },
+
+            style_table={
+                'maxHeight': '300px',
+                'overflowY': 'scroll'
+            },
+            style_header={
+                'fontWeight': 'bold'
+            },
+            style_cell={
+                'font_size': '20px',
+                'text_align': 'center'
+            },
         )
-    return figure1,figure2,table1,table2
-
-
+    return  table1, table2
 
 
 @app.callback(
@@ -1363,11 +1453,12 @@ def displayClick(semantic, reduction_method, cluster_method):
         y_axe = "tsne_position_y"
     cluster_label = cluster_method + "_cluster_label"
     cluster_set = data[cluster_label].unique()
-    # fig = go.Figure(data=[go.Scatter3d(
+    # fig = go.Figure(go.Scatter3d(
     #     x=data[x_axe],
     #     y=data[y_axe],
     #     z=[len(set(s)) for s in data["arg"]],
     #     text=["clusters: {}".format(x) for x in data[cluster_label]],
+    #     name=data[cluster_label].tolist(),
     #     mode='markers',
     #     marker=dict(
     #         size=12,
@@ -1377,21 +1468,44 @@ def displayClick(semantic, reduction_method, cluster_method):
     #     )
     # ),
     #
-    # ],
-    # )processed_data[processed_data[cluster_label] == cls][x_axe]
+    #
+    # )
+    #processed_data[processed_data[cluster_label] == cls][x_axe]
+    text_list=[]
+    inputdata=data.copy()
+    for index, row in inputdata.iterrows():
+        arg_list=list(row.arg)
+        inserted_arg=[x for y in (arg_list[i:i + 6] + ["<br>"] * (i < len(arg_list) - 5) for
+                     i in range(0, len(arg_list), 6)) for x in y]
+        one_arg = str(inserted_arg).strip('[]')
+        #input_arg=f_comma(one_arg, group=20, char='<br>')
+        input_arg=one_arg.strip('"') #没用 ，去吃str里的‘
+        text_list.append(input_arg)
+
+    inputdata["arguments"]=text_list
+    symbols=['circle', 'square', 'cross', 'square-open', 'x','diamond', 'diamond-open', 'circle-open']
+    if len(cluster_set)<=len(symbols):
+        cluster_symbol=symbols
+    else:
+        cluster_symbol=[None]*len(cluster_set)
     fig = go.Figure(data=[go.Scatter3d(
             x=data[data[cluster_label]==cls][x_axe],
             y=data[data[cluster_label]==cls][y_axe],
             z=[len(set(s)) for s in data[data[cluster_label]==cls]["arg"]],
-            text=["cluster: {}".format(x) for x in data[data[cluster_label]==cls][cluster_label]],
+            customdata=['<br>'+s for s in inputdata[inputdata[cluster_label]==cls]["arguments"]],
+            hovertemplate='Id:%{text}</b><br>length:%{z} <br></b>Arguments:%{customdata} ',
+            text=data[data[cluster_label]==cls].id,
+            #text=["cluster: {}".format(x) for x in data[data[cluster_label]==cls][cluster_label]],
             mode='markers',
             name="cluster"+str(cls),
             marker=dict(
-                size=6,
+                size=3,
                 color=cls,  # set color to an array/list of desired values
                 colorscale='Viridis',  # choose a colorscale
-                opacity=0.8
-            )
+                opacity=0.8,
+                symbol=cluster_symbol[cls]
+            ),
+
         ) for cls in cluster_set
         ],
         layout=go.Layout(title=dict(
@@ -1415,11 +1529,15 @@ def displayClick(semantic, reduction_method, cluster_method):
         x=data[data["groups"] == cls][x_axe],
         y=data[data["groups"] == cls][y_axe],
         z=[len(set(s)) for s in data[data["groups"] == cls]["arg"]],
-        text=["groups: {}".format(x) for x in data[data["groups"] == cls]["groups"]],
+        # text=["groups: {}".format(x) for x in data[data["groups"] == cls]["groups"]],
+
+        customdata=['<br>' + s for s in inputdata[inputdata["groups"] == cls]["arguments"]],
+        hovertemplate='Id:%{text}</b><br>length:%{z} <br></b>Arguments:%{customdata} ',
+        text=data[data["groups"] == cls].id,
         mode='markers',
         name="group " + str(cls),
         marker=dict(
-            size=6,
+            size=3,
             #color=cls,  # set color to an array/list of desired values
             colorscale='Viridis',  # choose a colorscale
             opacity=0.8
@@ -1450,143 +1568,159 @@ def displayClick(semantic, reduction_method, cluster_method):
 
 
 @app.callback(Output('correlation_hm', 'figure'),
-              [Input('btn-nclicks-1', 'n_clicks'),Input('btn-nclicks-2', 'n_clicks'), Input("data_semantic_correlation", "value")])
-def displayClick(btn1, btn2 , semantic):
+              [Input('btn-nclicks-1', 'n_clicks'),Input('btn-nclicks-2', 'n_clicks'),Input('btn-nclicks-3', 'n_clicks'),Input('btn-nclicks-4', 'n_clicks'),Input("data_semantic_correlation", "value")])
+def displayClick(btn1, btn2 , btn3, btn4, semantic):
 
     if os.listdir(PROCESSED_DIRECTORY):  # load and processed
         if semantic == "pr":
             data_correlation = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_correlation_matrix.pkl")
+            processed_data=pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
         else:
             data_correlation = pd.read_pickle(PROCESSED_DIRECTORY + "stage_correlation_matrix.pkl")
+            processed_data=pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
     else:
         if semantic == "pr":
             data_correlation = correlation_matrix
+            processed_data=df
         else:
             data_correlation = stage_correlation_matrix
+            processed_data = stage_df
+
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
-    layout_matrix =  {
-                            'height': 750,
-                            "title": {
-                                "text":"Correlation Coefficient Matrix",
-                                "font":dict(family="Open Sans, sans-serif", size=30, color="#515151"),
-                        },
-                        "font":dict(family="Open Sans, sans-serif", size=15),
-                        "automargin":True,
-                        }
+
+    abs_correlation = data_correlation.copy()
+    for idx, raw in abs_correlation.iterrows():
+        for x in raw.index:
+            abs_correlation.loc[idx, x] = abs(raw[x])
+    round_correlation = data_correlation.copy()
+    threshold=1/(2*len(processed_data))
+    for idx, raw in round_correlation.iterrows():
+        for x in raw.index:
+            to_round_value=raw[x]
+            if -threshold<=to_round_value<=threshold:
+                round_correlation.loc[idx, x]=0
+            else:
+                round_correlation.loc[idx, x] = round(to_round_value, 10)
+
 
     if btn1%2:
+        temp_round_correlation=round_correlation.copy()
+        distances = np.sqrt((1 - abs_correlation) / 2)
+        res_order = compute_serial_matrix(distances.values, method='single')
+        new_order = [abs_correlation.index[i] for i in res_order]
 
-        c = data_correlation.copy()
-        for idx, raw in c.iterrows():
-            for x in raw.index:
-                c.loc[idx, x] = abs(raw[x])
+        ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order) #data_correlation.reindex
+        z_value=ordered_correlation_matrix.to_numpy()
+        original_z = z_value.copy()
+        a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        a.to_pickle("method1.pkl")
+        z_value[z_value==0]=np.nan
+        x_value=[str(x)+"arg" for x in new_order]
+        y_value=[str(x)+"arg" for x in new_order]
 
-        distances = np.sqrt((1 - c) / 2)
-        ordered_dist_mat, res_order, res_linkage = compute_serial_matrix(distances.values, method='single')
-        new_order = [c.index[i] for i in res_order]
-
-        ordered_correlation_matrix = data_correlation.reindex(index=new_order, columns=new_order)
-
-        data = [{
-                    "type" : "heatmap",
-                    "z" : ordered_correlation_matrix.to_numpy(),
-                    "x" : [str(x)+"arg" for x in new_order],
-                    "y" : [str(x)+"arg" for x in new_order],
-                    "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]], #[[ 0, WELL_COLOR_new[0]], [ 1, WELL_COLOR_new[3]]],
-                    #"reversescale" : False,
-                    "showscale" : True,
-                    #"xgap" : 1,
-                    #"ygap" : 1,
-                    "colorbar": {
-                        "len":0.6,
-                        "ticks":"",
-                        "title":"Correlation",
-                        "titlefont":{
-                            "family":"Gravitas One",
-                            "color":"#515151"
-                        },
-                        "thickness":30,
-                        "tickcolor":"#515151",
-                        "tickfont":{
-                            "family":"Open Sans, sans serif", "color":"#515151"},
-                        "tickvals":[-1, 1],
-                    },
-                }]
-        figure = dict(data=data, layout=layout_matrix)
-        return figure
     elif btn2%2:
-        all_new_order=innovative_correlation_clustering(data_correlation)
-        new_test = data_correlation.reindex(index=all_new_order, columns=all_new_order)
-        return {
-            "data": [
-                {
-                    "type": "heatmap",
-                    "z": new_test.to_numpy(),
-                    "x": [str(x) + "arg" for x in new_test.columns],
-                    "y": [str(x) + "arg" for x in new_test.index],
-                    "colorscale": [[0, "#2F8FD2"], [1, "#ecae50"]],
-                    # "reversescale" : True,
-                    "showscale": True,
-                    # "xgap": 1,
-                    # "ygap": 1,
-                    "colorbar": {
-                        "len": 0.6,
-                        "ticks": "",
-                        "title": "Correlation",
-                        "titlefont": {
-                            "family": "Gravitas One",
-                            "color": "#515151"
-                        },
-                        "thickness": 30,
-                        "tickcolor": "#515151",
-                        "tickfont": {
-                            "family": "Open Sans, sans serif", "color": "#515151"},
-                        "tickvals": [-1, 1],
-                    },
-                }
-            ],
-            "layout": layout_matrix
-        }
+        all_new_order=innovative_correlation_clustering(round_correlation)
+        new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
+        z_value=new_test.to_numpy()
+        original_z = z_value.copy()
+        a = pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        a.to_pickle("method2.pkl")
+        z_value[z_value == 0] = np.nan
+        x_value=[str(x) + "arg" for x in new_test.columns]
+        y_value=[str(x) + "arg" for x in new_test.index]
 
+    elif btn3 % 2:
+        new_order=abs_optimal_leaf_ordering(abs_correlation)
+        ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order)#data_correlation.reindex
+        z_value = ordered_correlation_matrix.to_numpy()
+        original_z = z_value.copy()
+        a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        a.to_pickle("method3.pkl")
+        z_value[z_value == 0] = np.nan
+        x_value = [str(x) + "arg" for x in new_order]
+        y_value = [str(x) + "arg" for x in new_order]
+    elif btn4 % 2:
+        all_new_order=my_optimal_leaf_ordering(round_correlation)
+        new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
+        z_value = new_test.to_numpy()
+        original_z = z_value.copy()
+        a=pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        a.to_pickle("method4.pkl")
+        z_value[z_value == 0] = np.nan
+        x_value = [str(x) + "arg" for x in new_test.columns]
+        y_value = [str(x) + "arg" for x in new_test.index]
     else:
-        return {
-                        "data":[
-                            {
-                            "type" : "heatmap",
-                            "z" : data_correlation.to_numpy(),
-                            "x" : [str(x)+"arg" for x in data_correlation.columns],
-                            "y" : [str(x)+"arg" for x in data_correlation.index],
-                            "colorscale" : [[0, "#2F8FD2"], [1, "#ecae50"]],
-                            #"reversescale" : True,
-                            "showscale" : True,
-                            # "xgap" : 1,
-                            # "ygap" : 1,
-                            "colorbar": {
-                                "len":0.6,
-                                "ticks":"",
-                                "title":"Correlation",
-                                "titlefont":{
-                                    "family":"Gravitas One",
-                                    "color":"#515151"
-                                },
-                                "thickness":30,
-                                "tickcolor":"#515151",
-                                "tickfont":{
-                                    "family":"Open Sans, sans serif", "color":"#515151"},
-                                "tickvals":[-1, 1],
-                            },
-                            }
-                        ],
-                        "layout":layout_matrix
-                    }
+        z_value=round_correlation.to_numpy()#data_correlation.reindex
+        original_z=z_value.copy()
+        z_value[z_value == 0] = np.nan
+        x_value=[str(x)+"arg" for x in round_correlation.columns]
+        y_value=[str(x)+"arg" for x in round_correlation.index]
+
+    # layout_matrix = {
+    #     'height': 950,
+    #     "title": {
+    #         "text": "Correlation Coefficient Matrix",
+    #         "font": dict(family="Open Sans, sans-serif", size=30, color="#515151"),
+    #     },
+    #     "font": dict(family="Open Sans, sans-serif", size=15),
+    #     "automargin": True,
+    # }
+
+    fig = go.Figure(go.Heatmap(
+        z=z_value,
+        x=x_value,
+        y=y_value,
+        customdata =original_z,
+        hovertemplate='value:%{customdata} <br><b>x:%{x}</b><br>y: %{y} ',
+        name='',
+        colorscale='viridis',
+       ))
+    fig.update_layout(
+        autosize=False,
+        plot_bgcolor='rgba(0,0,0,0)',
+
+        height=750)
+    return fig
+
+    # return {
+    #                 "data":[
+    #                     {
+    #                     "type" : "heatmap",
+    #                     "z" : z_value,
+    #                     "x" : x_value,
+    #                     "y" : y_value,
+    #                     #"colorscale" : [[0,"#2F8FD2"],[0.5-threshold/2, "#000000"], [0.5+threshold/2, "#000000"],[1, "#ecae50"]],
+    #                     "colorscale": [[0, "#2F8FD2"], [1, "#ecae50"]],
+    #
+    #                     "showscale" : True,
+    #                     # "xgap" : 1,
+    #                     # "ygap" : 1,
+    #                     "colorbar": {
+    #                         "len":0.6,
+    #                         "ticks":"",
+    #                         "title":"Correlation",
+    #                         "titlefont":{
+    #                             "family":"Gravitas One",
+    #                             "color":"#515151"
+    #                         },
+    #                         "thickness":30,
+    #                         "tickcolor":"#515151",
+    #                         "tickfont":{
+    #                             "family":"Open Sans, sans serif", "color":"#515151"},
+    #                         "tickvals":[-1, 1],
+    #                     },
+    #                     }
+    #                 ],
+    #                 "layout":layout_matrix
+    #         }
 
 
-            #
+
             # {
             #     'data':[],
             #     'layout': layout_matrix
             # }
-
+            #
 
 
 
