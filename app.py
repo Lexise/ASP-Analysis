@@ -291,9 +291,9 @@ argument_analysis=html.Div([
                       dcc.RangeSlider(
                           id='my-range-slider',
                           min=0,
-                          max=len(loaded_processed_data),
+                          max=len(dataset_all),
                           step=1,
-                          value=[int(0.2 * len(loaded_processed_data)), int(0.5 * len(loaded_processed_data))]
+                          value=[int(0.2 * len(dataset_all)), int(0.5 * len(dataset_all))]
                       ),
                       ],
                      className="pretty_container seven columns",
@@ -495,103 +495,14 @@ main_page =     html.Div([
                     id="scatter_cluster",
 
                 ),
-                html.Div([
-                    html.Div([
-                    html.Span("Semantics:", style={"font-weight": "bold"}),
-                    dcc.RadioItems(
-                        id="semantic-method",
-                        options=[
-                                    {"label": "PREFER", "value": "pr"},
-                                    {"label": "STAGE", "value": "stg"},
-                                ],
-                        labelStyle={"display": "inline-block"},
-                        value="pr",
-                    )],
-                    style = {'width': '30%'},
-                    ),
-                    html.Div(children=[
-                        html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
-                        dcc.RadioItems(
-                            id="dimensional-reduction1",
-                            options=[
-                                {"label": "Tsne ", "value": "tsne"},
-                                {"label": "SVD", "value": "svd"},
-                            ],
-                            labelStyle={"display": "inline-block"},
-                            value="tsne",
-                        ),
-                            ],
-                        style = {'width': '30%'},
-
-                    ),
-                # html.Div([dcc.RadioItems(
-                #     id="dimensional-reduction2",
-                #     options=[
-                #         {"label": "Tsne ", "value": "tsne"},
-                #         {"label": "SVD", "value": "svd"},
-                #     ],
-                #     value="tsne",
-                #     labelStyle={"display": "inline-block"},
-                #     className="dcc_control",
-                #     )],
-                #     className="mini_container",
-                # ),
-                    html.Div([
-                    html.Span("Cluster Algorithm:", style={"font-weight": "bold"}),
-                    dcc.RadioItems(
-                        id="clustering-method",
-                        options=[
-                                    {"label": "DBscan ", "value": "db"},
-                                    {"label": "Kmeans", "value": "km"},
-                                ],
-                        labelStyle={"display": "inline-block"},
-                        value="db",
-                    )],
-                    style = {'width': '30%'},
-                    ),
-
-                ],
-                className = "row flex-display"
-                )
             ]),
 
 
             dcc.Tab(label='Scatter with Groups', style={ 'fontWeight': 'bold'}, children=[
                 dcc.Graph(
-                    id="scatter_groups",
+                    id="scatter_groups",)
 
-                ),
-                html.Div([
-                    html.Div([
-                        html.Span("Semantics:", style={"font-weight": "bold"}),
-                        dcc.RadioItems(
-                            id="semantic-method2",
-                            options=[
-                                        {"label": "PREFER", "value": "pr"},
-                                        {"label": "STAGE", "value": "stg"},
-                                    ],
-                            labelStyle={"display": "inline-block"},
-                            value="pr",
-                        )],
-                        style = {'width': '30%'},
-                        ),
 
-                    html.Div(children=[
-                        html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
-                        dcc.RadioItems(
-                            id="dimensional-reduction2",
-                            options=[
-                                {"label": "Tsne ", "value": "tsne"},
-                                {"label": "SVD", "value": "svd"},
-                            ],
-                            labelStyle={"display": "inline-block"},
-                            value="tsne",
-                        ),],
-                        style={'width': '30%'}),
-
-                    ],
-                    className="row flex-display"
-                ),
                 ]),
 
             dcc.Tab(label='Feature Report',style={ 'fontWeight': 'bold'}, children=[
@@ -607,50 +518,67 @@ main_page =     html.Div([
                     ],
                     className="row flex-display"
                 ),
-                html.Div([
-                    html.Div([
-                        html.Span("Semantics:", style={"font-weight": "bold"}),
-                        dcc.RadioItems(
-                            id="semantic-method3",
-                            options=[
-                                        {"label": "PREFER", "value": "pr"},
-                                        {"label": "STAGE", "value": "stg"},
-                                    ],
-                            labelStyle={"display": "inline-block"},
-                            value="pr",
-                            )
-                        ],
-                        style = {'width': '30%'},
-                        ),
-                    html.Div([
-                        html.Span("Cluster Algorithm:", style={"font-weight": "bold"}),
-                        dcc.RadioItems(
-                            id="clustering-method-table",
-                            options=[
-                                {"label": "DBscan ", "value": "db"},
-                                {"label": "Kmeans", "value": "km"},
-                            ],
-                            labelStyle={"display": "inline-block"},
-                            value="db",
-                        )
-                    ],
-                    style={'width': '30%'},),
-                    ],
-                className="row flex-display"),
+
             ]),
-        ])
+        ]),
+        html.Div([
+            html.Div([
+                html.Span("Semantics:", style={"font-weight": "bold"}),
+                dcc.RadioItems(
+                    id="semantic-method",
+                    options=[
+                        {"label": "PREFER", "value": "pr"},
+                        {"label": "STAGE", "value": "stg"},
+                    ],
+                    labelStyle={"display": "inline-block"},
+                    value="pr",
+                )],
+                style={'marginLeft': '2%', 'width': '28%'},
+            ),
+            html.Div(children=[
+                html.Span("Dimensional Reduction:", style={"font-weight": "bold"}),
+                dcc.RadioItems(
+                    id="dimensional-reduction1",
+                    options=[
+                        {"label": "Tsne ", "value": "tsne"},
+                        {"label": "SVD", "value": "svd"},
+                    ],
+                    labelStyle={"display": "inline-block"},
+                    value="tsne",
+                ),
+            ],
+                style={'marginLeft': '2%', 'width': '28%'},
+
+            ),
+
+            html.Div([
+                html.Span("Cluster Algorithm:", style={"font-weight": "bold"}),
+                dcc.RadioItems(
+                    id="clustering-method",
+                    options=[
+                        {"label": "DBscan ", "value": "db"},
+                        {"label": "Kmeans", "value": "km"},
+                    ],
+                    labelStyle={"display": "inline-block"},
+                    value="db",
+                )],
+                style={'marginLeft': '2%', 'width': '28%'},
+            ),
+
+        ],
+            className="row flex-display"
+        ),
+
+
+
         ],
         className = "pretty_container"),
-        # html.Div([
-        #     dcc.Markdown("""
-        #            **Click Data**
-        #
-        #            Click on points in the graph.
-        #        """),
-        #     html.Pre(id='click-data', style= {'border': 'thin lightgrey solid','overflowX': 'scroll'}),
-        # ], className='three columns'),
 
-    dcc.Link(html.Button('Argument Analysis',style={'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
+
+
+        html.Div(id='click-data'),
+        html.Br(),
+        dcc.Link(html.Button('Argument Analysis',style={'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-argument'),
         dcc.Link(html.Button('3D Analysis',style={'marginLeft': '2%','width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-3d'),
         dcc.Link(html.Button('Correlation Matrix',style={'marginLeft': '2%', 'width': '32%','font-size':'14px',"color":"#FFFF","backgroundColor":"#2F8FD2"}), href='/page-correlation'),
         html.Hr(),
@@ -700,67 +628,67 @@ main_page =     html.Div([
 
 
 ThreeD_analysis=html.Div([
-dcc.Link(html.Button('back'), href='/'),
-html.Div([
-    dcc.Graph(id="3d_scatter_cluster",className="row flex-display"),
-    dcc.Graph(id="3d_scatter_group", className="row flex-display"),
-    ],
-    className="row flex-display"
-),
-    html.Div([
-        html.Div([
-                    html.P("Presented semantic extension:", style={"font-weight": "bold"}, className="dcc_control"),
-
-                    dcc.RadioItems(
-                        id="data_semantic_correlation_3d",
-                        loading_state={"is_loading":True},
-                        options=[
-                            {"label": "Preferred ", "value": "pr"},
-                            {"label": "Stage", "value": "stg"},
-                        ],
-                        value="pr",
-                        labelStyle={"display": "inline-block"},
-                        className="dcc_control",
-                    ),
+                dcc.Link(html.Button('back'), href='/'),
+                html.Div([
+                    dcc.Graph(id="3d_scatter_cluster",className="row flex-display"),
+                    dcc.Graph(id="3d_scatter_group", className="row flex-display"),
                     ],
-                style={'marginRight': '2%', 'width': '30%'},
-                className="row flex-display"
+                    className="row flex-display"
                 ),
-        html.Div([
-                    html.P("Dimensional Reduction Method:", style={"font-weight": "bold"},className="dcc_control"),
-                    dcc.RadioItems(
-                        id="reduction_method",
-                        options=[
-                            {"label": "Tsne ", "value": "tsne"},
-                            {"label": "SVD", "value": "svd"},
-                        ],
-                        labelStyle={"display": "inline-block"},
-                        value="tsne",
-                        className="dcc_control",
-                )],
-                style={'marginRight': '2%', 'width': '30%'},
-                className="row flex-display"
-        ),
-        html.Div([
-                    html.P("Cluster Algorithm:", style={"font-weight": "bold"}, className="dcc_control"),
-                    dcc.RadioItems(
-                        id="clustering-method",
-                        options=[
-                            {"label": "DBscan ", "value": "db"},
-                            {"label": "Kmeans", "value": "km"},
-                        ],
-                        labelStyle={"display": "inline-block"},
-                        value="db",
-                        className="dcc_control",
-                    )],
+                    html.Div([
+                        html.Div([
+                                    html.P("Presented semantic extension:", style={"font-weight": "bold"}, className="dcc_control"),
 
-            style={ 'width': '30%'},
-            className="row flex-display"
-            )
-        ],
-        className = "row flex-display"),
-    ],
-className="pretty_container")
+                                    dcc.RadioItems(
+                                        id="data_semantic_correlation_3d",
+                                        loading_state={"is_loading":True},
+                                        options=[
+                                            {"label": "Preferred ", "value": "pr"},
+                                            {"label": "Stage", "value": "stg"},
+                                        ],
+                                        value="pr",
+                                        labelStyle={"display": "inline-block"},
+                                        className="dcc_control",
+                                    ),
+                                    ],
+                                style={'marginRight': '2%', 'width': '30%'},
+                                className="row flex-display"
+                                ),
+                        html.Div([
+                                    html.P("Dimensional Reduction Method:", style={"font-weight": "bold"},className="dcc_control"),
+                                    dcc.RadioItems(
+                                        id="reduction_method",
+                                        options=[
+                                            {"label": "Tsne ", "value": "tsne"},
+                                            {"label": "SVD", "value": "svd"},
+                                        ],
+                                        labelStyle={"display": "inline-block"},
+                                        value="tsne",
+                                        className="dcc_control",
+                                )],
+                                style={'marginRight': '2%', 'width': '30%'},
+                                className="row flex-display"
+                        ),
+                        html.Div([
+                                    html.P("Cluster Algorithm:", style={"font-weight": "bold"}, className="dcc_control"),
+                                    dcc.RadioItems(
+                                        id="clustering-method",
+                                        options=[
+                                            {"label": "DBscan ", "value": "db"},
+                                            {"label": "Kmeans", "value": "km"},
+                                        ],
+                                        labelStyle={"display": "inline-block"},
+                                        value="db",
+                                        className="dcc_control",
+                                    )],
+
+                            style={ 'width': '30%'},
+                            className="row flex-display"
+                            )
+                        ],
+                        className = "row flex-display"),
+                    ],
+                className="pretty_container")
 
 app.layout = html.Div([
 
@@ -901,12 +829,62 @@ def display_page(pathname):
         return main_page
 
 
-# @app.callback(
-#     Output('click-data', 'children'),
-#     [Input('scatter_cluster', 'clickData')])
-# def display_click_data(clickData):
-#     print(clickData)
-#     return json.dumps(clickData, indent=2)
+@app.callback(
+    Output('click-data', 'children'),
+    [Input('scatter_cluster', 'clickData'),Input('scatter_groups', 'clickData'),Input("semantic-method","value"),Input("clustering-method", "value"),Input('confirm', 'submit_n_clicks')])
+def display_click_data(clickData1,clickData2, semantic1,method,n_click):
+    changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
+
+    if  len(os.listdir(PROCESSED_DIRECTORY))==12 or n_click:#load and processed
+        if semantic1 == "pr":
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
+        else:
+            processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
+
+    else:
+        if semantic1 =="pr":
+            processed_data = df
+        else:
+            processed_data = stage_df
+    cluster_label = method + "_cluster_label"
+
+    print("changed_id:",[p['prop_id'] for p in dash.callback_context.triggered])
+    if clickData1 or clickData2:
+        if "scatter_cluster" in changed_id:
+            clickData=clickData1
+            print("clickData1",clickData1)
+        elif "scatter_groups" in changed_id:
+            clickData = clickData2
+        else:
+            return None
+        print("clickData2", clickData2)
+        selected_point_id=clickData["points"][0]["customdata"]
+        print("clickData:",clickData)
+        selected_point=processed_data[processed_data.id==selected_point_id]
+        selected_point_arg=','.join(str(x) for x in selected_point.arg)
+
+        selected_point_cluster=selected_point[cluster_label]
+        return html.Div([
+                html.Table([
+                    html.Tr([html.Th('Id'),
+                             html.Th('Cluster'),
+                             html.Th('Groups'),
+                             html.Th('Arguments'),
+                             # html.Th('Most Recent Click')
+                             ]),
+                             html.Tr([html.Td(selected_point_id),
+                                      html.Td(selected_point_cluster),
+                                      html.Td(selected_point.groups),
+                                      html.Td(selected_point_arg.strip('[]')),
+                                      # html.Td(button_id)
+                                      ])
+                             ],
+                )
+                ],
+        className = "pretty_container")
+    return None
+
+
 
 @app.callback(Output('scatter_cluster', 'figure'),
               [ Input('signal', 'children'),Input("dimensional-reduction1", "value"), Input("semantic-method","value"),
@@ -936,60 +914,76 @@ def generate_tabs1( content, reduction1, semantic1,  method, n_click):#processed
 
     inputdata=processed_data.copy()
     inputdata[cluster_label]=["Cluster "+str(a) for a in processed_data[cluster_label]]
-    clusters=inputdata[cluster_label].unique()
-    if len(clusters)<=52:
-        clusters_symbol=cluster_label
+    cluster_set = list(processed_data[cluster_label].unique())
+    if len(cluster_set)<=52:
+        clusters_symbol=cluster_set
     else:
-        clusters_symbol=None
-    figure1 = px.scatter(inputdata, x=x_axe, y=y_axe,  color=cluster_label, symbol=clusters_symbol,#symbol_sequence =[102]*len(inputdata),
+        clusters_symbol=[None]*len(cluster_set)
 
-                         hover_name=cluster_label,  hover_data={x_axe:False, # remove species from hover data
-                                                          y_axe: False,
-                                                          cluster_label:False,
-                         #'d':':.2f', # customize hover for column of y attribute
-                         'id':True,
-                         'arg':True, # add other column, default formatting
-                         'groups':True, # add other column, customized formatting
+    #let hover on the plot directly
+    # figure1 = px.scatter(inputdata, x=x_axe, y=y_axe,  color=cluster_label, symbol=clusters_symbol,#symbol_sequence =[102]*len(inputdata),
+    #                      hover_name=cluster_label,  hover_data={
+    #                                                              x_axe:False, # remove species from hover data
+    #                                                               y_axe: False,
+    #                                                               cluster_label:False,
+    #                                                              'id':True,
+    #                                                              'arg':True, # add other column, default formatting
+    #                                                              'groups':True, # add other column, customized formatting
+    #                                                             }
+    #                      )
+    # #figure1.update_traces() #remove hover  hovertemplate=None,
+    # figure1.update_xaxes(showgrid=False,visible=False,zerolinecolor="Black")
+    # figure1.update_yaxes(showgrid=False,zeroline=True,visible=False,zerolinecolor="black")
+    # figure1.update_layout(  clickmode='event+select', plot_bgcolor='rgba(0,0,0,0)',legend_title_text='',autosize=True)
+    # figure1 = go.Figure(figure1)
 
-                         # data not in dataframe, default formatting
-                         #'suppl_1': np.random.random(len(df)),
-                         # data not in dataframe, customized formatting
-                         #'suppl_2': (':.3f', np.random.random(len(df)))
-                        })
+    #remove hover, provide an extra table to show the arg information of selected data point
+
+    fig = go.Figure()
+    for x in cluster_set:
+        fig.add_trace(go.Scatter(
+            x=processed_data[processed_data[cluster_label]==x][x_axe],
+            y=processed_data[processed_data[cluster_label]==x][y_axe],
+            customdata=processed_data[processed_data[cluster_label]==x]["id"],
+            mode='markers',
+            name=str(x)+" cluster",
+            #hovertemplate='Id:%{customdata} ',
+            # hovertext=processed_data[processed_data[cluster_label]==x].arg,
+            hoverinfo="none",#'none'
+            marker=dict(
+                symbol=cluster_set.index(x)
+            ),
+            showlegend=True
+        ))
+    fig.update_layout(xaxis={'showgrid': False,'visible': False,},
+                      yaxis={'showgrid': False, 'visible': False, },
+                      plot_bgcolor='rgba(0,0,0,0)',
+                      clickmode='event+select')
+    return fig
 
 
-    #figure1.update_traces() #remove hover  hovertemplate=None,
-    figure1.update_xaxes(showgrid=False,visible=False,zerolinecolor="Black")
-    figure1.update_yaxes(showgrid=False,zeroline=True,visible=False,zerolinecolor="black")
-    figure1.update_layout(  clickmode='event+select', plot_bgcolor='rgba(0,0,0,0)',legend_title_text='',autosize=True)
-
-    figure1 = go.Figure(figure1)
 
 
-    return figure1
 
 
 @app.callback(Output('scatter_groups', 'figure'),
               [Input('signal', 'children'),
-               Input("dimensional-reduction2", "value"),
-               Input("semantic-method2", "value"),
-               Input("clustering-method", "value"),
+               Input("dimensional-reduction1", "value"),
+               Input("semantic-method", "value"),
+               #Input("clustering-method", "value"),
                Input('confirm', 'submit_n_clicks')])
 # @cache.memoize(TIMEOUT)
-def generate_tabs2(content, reduction2, semantic2, method, n_click):  # processed_data, table1_data,table2_data ):
+def generate_tabs2(content, reduction2, semantic2, n_click):  # method):
     if len(os.listdir(PROCESSED_DIRECTORY)) == 12 or n_click:  # load and processed
         if semantic2 == "pr":
             processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "prefer_processed_data.pkl")
         else:
             processed_data = pd.read_pickle(PROCESSED_DIRECTORY + "stage_processed_data.pkl")
-
-
     else:
         if semantic2 == "pr":
             processed_data = df
         else:
             processed_data = stage_df
-
 
     if reduction2 == "svd":
         x_axe = "svd_position_x"
@@ -997,29 +991,51 @@ def generate_tabs2(content, reduction2, semantic2, method, n_click):  # processe
     else:
         x_axe = "tsne_position_x"
         y_axe = "tsne_position_y"
-    cluster_label = method + "_cluster_label"
-    figure2 = px.scatter(processed_data, x=x_axe, y=y_axe, color="groups",
-                         hover_name="groups", hover_data={x_axe: False,  # remove species from hover data
-                                                          y_axe: False,
-                                                          cluster_label: True,
-                                                          'id': True,
-                                                          'arg': True,  # add other column, default formatting
-                                                          'groups': False,  # add other column, customized formatting
-
-                                                          })
-    figure2.update_xaxes(showgrid=False, visible=False)
-    figure2.update_yaxes(showgrid=False, zeroline=True, visible=False, zerolinecolor="black")
-    figure2.update_layout(plot_bgcolor='rgba(0,0,0,0)', legend_title_text='Groups', autosize=True)
-    figure2 = go.Figure(figure2)
+    #cluster_label = method + "_cluster_label"
 
 
-    return figure2
+    # let hover on the plot directly
+    # figure2 = px.scatter(processed_data, x=x_axe, y=y_axe, color="groups",
+    #                      hover_name="groups", hover_data={x_axe: False,  # remove species from hover data
+    #                                                       y_axe: False,
+    #                                                       cluster_label: True,
+    #                                                       'id': True,
+    #                                                       'arg': True,  # add other column, default formatting
+    #                                                       'groups': False,  # add other column, customized formatting
+    #
+    #                                                       })
+    # figure2.update_xaxes(showgrid=False, visible=False)
+    # figure2.update_yaxes(showgrid=False, zeroline=True, visible=False, zerolinecolor="black")
+    # figure2.update_layout(plot_bgcolor='rgba(0,0,0,0)', legend_title_text='Groups', autosize=True)
+    # figure2 = go.Figure(figure2)
+
+    # remove hover, provide an extra table to show the arg information of selected data point
+    groups_set = processed_data["groups"].unique()
+    fig = go.Figure()
+    for x in groups_set:
+        fig.add_trace(go.Scatter(
+            x=processed_data[processed_data["groups"] == x][x_axe],
+            y=processed_data[processed_data["groups"] == x][y_axe],
+            customdata=processed_data[processed_data["groups"] == x]["id"],
+            mode='markers',
+            name=str(x),
+            hoverinfo="none",
+            # marker=dict(
+            #     symbol=x
+            # ),
+            showlegend=True
+        ))
+    fig.update_layout(xaxis={'showgrid': False, 'visible': False, },
+                      yaxis={'showgrid': False, 'visible': False, },
+                      plot_bgcolor='rgba(0,0,0,0)',
+                      clickmode='event+select')
+    return fig
 
 
 @app.callback([ Output('table1', 'children'),
                Output('table2', 'children')],
-              [Input('signal', 'children'), Input("semantic-method3", "value"),
-               Input("clustering-method-table", "value"),
+              [Input('signal', 'children'), Input("semantic-method", "value"),
+               Input("clustering-method", "value"),
                Input('confirm', 'submit_n_clicks')])
 # @cache.memoize(TIMEOUT)
 def generate_tabs3(content, semantic3,  table_method,
