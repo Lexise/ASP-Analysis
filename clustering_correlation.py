@@ -5,8 +5,9 @@ from scipy.cluster.hierarchy import linkage
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import pdist
-from fastcluster import linkage
-from polo import optimal_leaf_ordering
+
+from scipy.cluster import hierarchy
+import numpy as np
 
 
 def seriation(Z, N, cur_index):
@@ -84,7 +85,7 @@ def innovative_correlation_clustering(correlation_matrix):
             set_list.loc[[set_idx], 'content'] = [set_content]
         elif len(non_zero_set) > 1:
             selected = set_list.loc[non_zero_set, :]
-            merge_selected = []
+            merge_selected = [arg]   #changed
             for i in selected.content.values:
                 merge_selected += i
             set_list.loc[[non_zero_set[0]], "content"] = [merge_selected]
@@ -107,17 +108,21 @@ def innovative_correlation_clustering(correlation_matrix):
 
 
 def abs_optimal_leaf_ordering(correlation_matrix):
-    # c = correlation_matrix.copy()
-    # for idx, raw in c.iterrows():
-    #     for x in raw.index:
-    #         c.loc[idx, x] = abs(raw[x])
-    D = pdist(correlation_matrix, 'euclidean')
-    Z = linkage(D, 'ward')
-    optimal_Z = optimal_leaf_ordering(Z, D)
-    N = len(correlation_matrix)
-    new_order = seriation(optimal_Z, N, N + N - 2)
+
+    # D = pdist(correlation_matrix, 'euclidean')
+    # Z = linkage(D, 'ward')
+    # optimal_Z = optimal_leaf_ordering(Z, D)
+    # N = len(correlation_matrix)
+    # new_order = seriation(optimal_Z, N, N + N - 2)
+    # new = [correlation_matrix.index[i] for i in new_order]
+
+
+    X = correlation_matrix  # np.random.randn(10,10)
+    Z = hierarchy.ward(X)
+    hierarchy.leaves_list(Z)
+
+    new_order = hierarchy.leaves_list(hierarchy.optimal_leaf_ordering(Z, X))
     new = [correlation_matrix.index[i] for i in new_order]
-    #new_test = correlation_matrix.reindex(index=new, columns=new)
     return new
 
 def my_optimal_leaf_ordering(correlation_matrix):
@@ -145,7 +150,7 @@ def my_optimal_leaf_ordering(correlation_matrix):
             set_list.loc[[set_idx], 'content'] = [set_content]
         elif len(non_zero_set) > 1:
             selected = set_list.loc[non_zero_set, :]
-            merge_selected = []
+            merge_selected = [arg]
             for i in selected.content.values:
                 merge_selected += i
             set_list.loc[[non_zero_set[0]], "content"] = [merge_selected]

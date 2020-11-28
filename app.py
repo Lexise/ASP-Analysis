@@ -48,7 +48,9 @@ if not os.path.exists(CACHE_DIRECTORY):
 if not os.path.exists(ZIP_DIRECTORY):
     os.makedirs(ZIP_DIRECTORY)
     print("created")
-app = dash.Dash(meta_tags=[{"name": "viewport", "content": "width=device-width"}])
+app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}])
+app.scripts.config.serve_locally=True
+app.css.config.serve_locally=True
 server = app.server
 cache_config = {
     "CACHE_TYPE": "filesystem",
@@ -80,6 +82,7 @@ def download(path):
         return send_from_directory(DEFAULT_DATA, path, as_attachment=True)
 
 app.config.suppress_callback_exceptions = True
+
 mapbox_access_token = "pk.eyJ1IjoiamFja2x1byIsImEiOiJjajNlcnh3MzEwMHZtMzNueGw3NWw5ZXF5In0.fk8k06T96Ml9CLGgKmk81w"
 layout = dict(
     autosize=True,
@@ -951,7 +954,7 @@ def generate_tabs1( content, reduction1, semantic1,  method, n_click):#processed
             # hovertext=processed_data[processed_data[cluster_label]==x].arg,
             hoverinfo="none",#'none'
             marker=dict(
-                symbol=cluster_set.index(x)
+                symbol=clusters_symbol[x]
             ),
             showlegend=True
         ))
@@ -1627,10 +1630,10 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
 
         ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order) #data_correlation.reindex
         z_value=ordered_correlation_matrix.to_numpy()
-        original_z = z_value.copy()
-        a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
-        a.to_pickle("method1.pkl")
-        z_value[z_value==0]=np.nan
+        #original_z = z_value.copy()
+        #a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        #a.to_pickle("method1.pkl")
+        #z_value[z_value==0]=np.nan
         x_value=[str(x)+"arg" for x in new_order]
         y_value=[str(x)+"arg" for x in new_order]
 
@@ -1638,10 +1641,10 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
         all_new_order=innovative_correlation_clustering(round_correlation)
         new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
         z_value=new_test.to_numpy()
-        original_z = z_value.copy()
-        a = pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
-        a.to_pickle("method2.pkl")
-        z_value[z_value == 0] = np.nan
+        #original_z = z_value.copy()
+        #a = pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        #a.to_pickle("method2.pkl")
+        #z_value[z_value == 0] = np.nan
         x_value=[str(x) + "arg" for x in new_test.columns]
         y_value=[str(x) + "arg" for x in new_test.index]
 
@@ -1649,47 +1652,39 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
         new_order=abs_optimal_leaf_ordering(abs_correlation)
         ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order)#data_correlation.reindex
         z_value = ordered_correlation_matrix.to_numpy()
-        original_z = z_value.copy()
-        a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
-        a.to_pickle("method3.pkl")
-        z_value[z_value == 0] = np.nan
+        #original_z = z_value.copy()
+        #a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        #a.to_pickle("method3.pkl")
+        #z_value[z_value == 0] = np.nan
         x_value = [str(x) + "arg" for x in new_order]
         y_value = [str(x) + "arg" for x in new_order]
     elif btn4 % 2:
         all_new_order=my_optimal_leaf_ordering(round_correlation)
         new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
         z_value = new_test.to_numpy()
-        original_z = z_value.copy()
-        a=pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
-        a.to_pickle("method4.pkl")
-        z_value[z_value == 0] = np.nan
+        #original_z = z_value.copy()
+        #a=pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        #a.to_pickle("method4.pkl")
+        #z_value[z_value == 0] = np.nan
         x_value = [str(x) + "arg" for x in new_test.columns]
         y_value = [str(x) + "arg" for x in new_test.index]
     else:
         z_value=round_correlation.to_numpy()#data_correlation.reindex
-        original_z=z_value.copy()
-        z_value[z_value == 0] = np.nan
+        #original_z=z_value.copy()
+        #z_value[z_value == 0] = np.nan
         x_value=[str(x)+"arg" for x in round_correlation.columns]
         y_value=[str(x)+"arg" for x in round_correlation.index]
 
-    # layout_matrix = {
-    #     'height': 950,
-    #     "title": {
-    #         "text": "Correlation Coefficient Matrix",
-    #         "font": dict(family="Open Sans, sans-serif", size=30, color="#515151"),
-    #     },
-    #     "font": dict(family="Open Sans, sans-serif", size=15),
-    #     "automargin": True,
-    # }
+
 
     fig = go.Figure(go.Heatmap(
         z=z_value,
         x=x_value,
         y=y_value,
-        customdata =original_z,
-        hovertemplate='value:%{customdata} <br><b>x:%{x}</b><br>y: %{y} ',
+        #customdata =original_z,
+        hovertemplate='value:%{z} <br><b>x:%{x}</b><br>y: %{y} ',
         name='',
-        colorscale='viridis',
+        colorscale='RdBu',
        ))
     fig.update_layout(
         autosize=False,
@@ -1698,45 +1693,6 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
         height=750)
     return fig
 
-    # return {
-    #                 "data":[
-    #                     {
-    #                     "type" : "heatmap",
-    #                     "z" : z_value,
-    #                     "x" : x_value,
-    #                     "y" : y_value,
-    #                     #"colorscale" : [[0,"#2F8FD2"],[0.5-threshold/2, "#000000"], [0.5+threshold/2, "#000000"],[1, "#ecae50"]],
-    #                     "colorscale": [[0, "#2F8FD2"], [1, "#ecae50"]],
-    #
-    #                     "showscale" : True,
-    #                     # "xgap" : 1,
-    #                     # "ygap" : 1,
-    #                     "colorbar": {
-    #                         "len":0.6,
-    #                         "ticks":"",
-    #                         "title":"Correlation",
-    #                         "titlefont":{
-    #                             "family":"Gravitas One",
-    #                             "color":"#515151"
-    #                         },
-    #                         "thickness":30,
-    #                         "tickcolor":"#515151",
-    #                         "tickfont":{
-    #                             "family":"Open Sans, sans serif", "color":"#515151"},
-    #                         "tickvals":[-1, 1],
-    #                     },
-    #                     }
-    #                 ],
-    #                 "layout":layout_matrix
-    #         }
-
-
-
-            # {
-            #     'data':[],
-            #     'layout': layout_matrix
-            # }
-            #
 
 
 
