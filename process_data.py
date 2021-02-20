@@ -125,8 +125,9 @@ def process_data(dir, arguments_file, answer_sets, eps, minpts, n_cluster):
                 processed_data = clustering_dbscan(processed_data)
             print("(stgae)dbscan clustering: ", time.process_time() - start2)
 
+        processed_data = dimensional_reduction(processed_data)
         start3 = time.process_time()
-        processed_data=dimensional_reduction(processed_data)
+
         if n_cluster !="" and n_cluster !="Cluster Num":
             processed_data= clustering_km(processed_data,int(n_cluster))
         else:
@@ -248,32 +249,51 @@ def find_feature_cluster(common_all, data, labels):  #clustered data
         all_lists = list(current_cluster.arg)
         common_links = set(all_lists[0]).intersection(*all_lists[1:])
         common_links = common_links - common_all
-        other_cluster_arg = [set(x) for x in data[data[labels] != cluster].arg]
+
         #other_arguments = [item for sublist in other_cluster_arg for item in sublist]
         # mask = [a not in other_arguments for a in common_links]
         # if any(mask):
         #     feature = list(itertools.compress(common_links, mask))
 
-        if not any(common_links <= x for x in other_cluster_arg):
-            feature.append(common_links)
-            for x in range(len(common_links), 1, -1):
-                temp = False
-                combinitions = list(itertools.combinations(common_links, x - 1))  #对于15长度的common_links, 3003 for x =11  太多了
-                for combine in combinitions:
-                    combine = set(combine)
-                    if not any(combine.issubset(x) for x in other_cluster_arg):
-                        temp = True
-                        add_to(feature, combine)
-                if not temp:
-                    break
-        if not feature:
-            cluster_with_feature.remove(cluster)
+        #2021.02.21 对于单一的feature的处理
+        has_single_feature=0
+        other_cluster_arg_flat_list = [x for x in data[data[labels] != cluster].arg]
+        other_cluster_arg_combine = [item for sublist in other_cluster_arg_flat_list for item in sublist]
+        #other_cluster_arg_combine=set(other_cluster_arg_combine)
+        for x in common_links:
+            if x not in other_cluster_arg_combine:
+                feature.append(x)
+                has_single_feature=1
+        if has_single_feature:
+            all_feature.append(str(feature).strip('[]'))
+
+
+
+
+
+
         else:
-            all_feature.append(feature)
+            other_cluster_arg = [set(x) for x in data[data[labels] != cluster].arg]
+            if not any(common_links <= x for x in other_cluster_arg):
+                feature.append(common_links)
+                for x in range(len(common_links), 1, -1):
+                    temp = False
+                    combinitions = list(itertools.combinations(common_links, x - 1))  #对于15长度的common_links, 3003 for x =11  太多了
+                    for combine in combinitions:
+                        combine = set(combine)
+                        if not any(combine.issubset(x) for x in other_cluster_arg):
+                            temp = True
+                            add_to(feature, combine)
+                    if not temp:
+                        break
+            if not feature:
+                cluster_with_feature.remove(cluster)
+            else:
+                all_feature.append(str(feature[0]))
 
     sum_diff = pd.DataFrame({
         labels: cluster_with_feature,
-        "features": [str(x) for x in all_feature],
+        "features_arguments": all_feature,
     })
 
     return sum_diff

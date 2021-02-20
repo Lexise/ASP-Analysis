@@ -270,7 +270,7 @@ argument_analysis=html.Div([
                                 className="mini_container",
                             ),
                             html.Div(
-                                [html.H6(id="prefer"), html.P("Prefer")],
+                                [html.H6(id="prefer"), html.P("Preferred")],
                                 id="prefer_block",
                                 className="mini_container",
 
@@ -435,7 +435,7 @@ main_page =     html.Div([
                 html.Div(
                     [
 
-                        dcc.Upload([html.Button("View Processed Data" ,id="view_button",style={"color":"#FFFF","backgroundColor":"#2F8FD2"})],id="view-processed-button",multiple=True),
+                        dcc.Upload([html.Button("View/ Upload Processed Data" ,id="view_button",style={"color":"#FFFF","backgroundColor":"#2F8FD2"})],id="view-processed-button",multiple=True),
 
                         dcc.ConfirmDialog(
                             id='confirm',
@@ -530,8 +530,8 @@ main_page =     html.Div([
                 dcc.RadioItems(
                     id="semantic-method",
                     options=[
-                        {"label": "PREFER", "value": "pr"},
-                        {"label": "STAGE", "value": "stg"},
+                        {"label": "Preferred", "value": "pr"},
+                        {"label": "Stage", "value": "stg"},
                     ],
                     labelStyle={"display": "inline-block"},
                     value="pr",
@@ -587,7 +587,7 @@ main_page =     html.Div([
         html.Hr(),
         html.Div([
 
-            dcc.Upload([html.Button(children='Upload File',id="upload_button")], id="upload-data",style={'width': '13%','marginRight': '2.5%'},multiple=True ),
+            dcc.Upload([html.Button(children='Load New Data',id="upload_button")], id="upload-data",style={'width': '13%','marginRight': '2.5%'},multiple=True ),
             dcc.Input(id='eps', type='text', value='Eps',style={'width': '10%','marginRight': '0.5%','marginLeft': '4%'}),
             dbc.Tooltip("DBscan  parameter, specifies the distance between two points to be considered within one cluster.suggested a decimal in range[1,3]", target="eps"),
             dcc.Input(id='minpts', type='text', value='MinPts',style={'width': '10%','marginRight': '0.5%'}),
@@ -735,12 +735,12 @@ def global_store(eps, minpts, n_cluster):
                 ])
         zipname=files[0].strip("apx")+"zip"
         if question!="" and pr_answer!="" and stg_answer!="":
-            start_time = time.time()
+            start_time = time.process_time()#time.time()
             print("start process")
             process_data(PROCESSED_DIRECTORY,UPLOAD_DIRECTORY+question, UPLOAD_DIRECTORY+pr_answer,eps, minpts, n_cluster)
             process_data(PROCESSED_DIRECTORY, UPLOAD_DIRECTORY + question, UPLOAD_DIRECTORY + stg_answer, eps, minpts, n_cluster)
 
-            print("(whole)get processed data", time.time() - start_time)
+            print("(whole)get processed data", time.process_time() - start_time) #time.time() - start_time)
         else:
             print("the input file is not correct.")
 
@@ -919,7 +919,9 @@ def generate_tabs1( content, reduction1, semantic1,  method, n_click):#processed
     inputdata[cluster_label]=["Cluster "+str(a) for a in processed_data[cluster_label]]
     cluster_set = list(processed_data[cluster_label].unique())
     if len(cluster_set)<=52:
-        clusters_symbol=cluster_set
+        temp = [100 if x == -1 else None for x in cluster_set]
+
+        clusters_symbol=temp
     else:
         clusters_symbol=[None]*len(cluster_set)
 
@@ -1307,7 +1309,7 @@ def update_cluster_rate(clickData, cluster_method, semantic):
     stable_value=len(data[data.groups == "stable"])/ len(data) * 100
     stable = "{:.2f}".format(stable_value) + "%"
     if semantic == "pr":
-        prefer_value=len(data[data.groups == "prefer-"])/ len(data) * 100
+        prefer_value=len(data[data.groups == "preferred-"])/ len(data) * 100
         other="{:.2f}".format(prefer_value)+"%"
         pr_display={'display':'block'}
         stg_display={'display':'none'}
@@ -1607,10 +1609,7 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
 
     changed_id = [p['prop_id'] for p in dash.callback_context.triggered][0]
 
-    abs_correlation = data_correlation.copy()
-    for idx, raw in abs_correlation.iterrows():
-        for x in raw.index:
-            abs_correlation.loc[idx, x] = abs(raw[x])
+
     round_correlation = data_correlation.copy()
     threshold=1/(2*len(processed_data))
     for idx, raw in round_correlation.iterrows():
@@ -1621,6 +1620,10 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
             else:
                 round_correlation.loc[idx, x] = round(to_round_value, 10)
 
+    abs_correlation = round_correlation.copy() #data_correlation
+    for idx, raw in abs_correlation.iterrows():
+        for x in raw.index:
+            abs_correlation.loc[idx, x] = abs(raw[x])
 
     if btn1%2:
         temp_round_correlation=round_correlation.copy()
@@ -1630,9 +1633,9 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
 
         ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order) #data_correlation.reindex
         z_value=ordered_correlation_matrix.to_numpy()
-        #original_z = z_value.copy()
-        #a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
-        #a.to_pickle("method1.pkl")
+        # original_z = z_value.copy()
+        # a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        # a.to_pickle("method1.pkl")
         #z_value[z_value==0]=np.nan
         x_value=[str(x)+"arg" for x in new_order]
         y_value=[str(x)+"arg" for x in new_order]
@@ -1641,20 +1644,20 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
         all_new_order=innovative_correlation_clustering(round_correlation)
         new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
         z_value=new_test.to_numpy()
-        #original_z = z_value.copy()
-        #a = pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
-        #a.to_pickle("method2.pkl")
+        # original_z = z_value.copy()
+        # a = pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        # a.to_pickle("method2.pkl")
         #z_value[z_value == 0] = np.nan
         x_value=[str(x) + "arg" for x in new_test.columns]
         y_value=[str(x) + "arg" for x in new_test.index]
 
     elif btn3 % 2:
-        new_order=abs_optimal_leaf_ordering(abs_correlation)
+        new_order=abs_optimal_leaf_ordering(data_correlation)
         ordered_correlation_matrix = round_correlation.reindex(index=new_order, columns=new_order)#data_correlation.reindex
         z_value = ordered_correlation_matrix.to_numpy()
-        #original_z = z_value.copy()
-        #a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
-        #a.to_pickle("method3.pkl")
+        # original_z = z_value.copy()
+        # a = pd.DataFrame(data=original_z, index=new_order, columns=new_order)
+        # a.to_pickle("method3.pkl")
         #z_value[z_value == 0] = np.nan
         x_value = [str(x) + "arg" for x in new_order]
         y_value = [str(x) + "arg" for x in new_order]
@@ -1662,9 +1665,9 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
         all_new_order=my_optimal_leaf_ordering(round_correlation)
         new_test = round_correlation.reindex(index=all_new_order, columns=all_new_order)#data_correlation.reindex
         z_value = new_test.to_numpy()
-        #original_z = z_value.copy()
-        #a=pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
-        #a.to_pickle("method4.pkl")
+        # original_z = z_value.copy()
+        # a=pd.DataFrame(data=original_z, index=all_new_order, columns=all_new_order)
+        # a.to_pickle("method4.pkl")
         #z_value[z_value == 0] = np.nan
         x_value = [str(x) + "arg" for x in new_test.columns]
         y_value = [str(x) + "arg" for x in new_test.index]
