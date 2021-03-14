@@ -90,7 +90,7 @@ def process_data(dir, arguments_file, answer_sets, eps, minpts, n_cluster):
                 'arg': arguments,
                 'not_defeated': not_defeated1,
             })
-            processed_data["groups"] = np.where(processed_data["not_defeated"] == 0, "stable", "prefer-")
+            processed_data["groups"] = np.where(processed_data["not_defeated"] == 0, "stable", "preferred")
 
             print("(prefer)generally process answer sets( read data, one hot, group label, ): ", time.process_time() - start)
             start2 = time.process_time()
@@ -293,7 +293,7 @@ def find_feature_cluster(common_all, data, labels):  #clustered data
 
     sum_diff = pd.DataFrame({
         labels: cluster_with_feature,
-        "features_arguments": all_feature,
+        "feature_arguments": all_feature,
     })
 
     return sum_diff

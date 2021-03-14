@@ -1692,8 +1692,11 @@ def displayClick(btn1, btn2 , btn3, btn4, semantic):
     fig.update_layout(
         autosize=False,
         plot_bgcolor='rgba(0,0,0,0)',
-
+        yaxis=dict(
+            autorange='reversed'
+        ),
         height=750)
+    fig.update_xaxes(side="top")
     return fig
 
 
