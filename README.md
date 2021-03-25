@@ -1,5 +1,5 @@
 # ASP-Analysis
-A Dash application that uses data mining algorithms (KMeans, DBscan clustering) to analyses the whole space of answer sets, identifies the inner patterns, and helps users to find the interesting attributes for further investigation.
+A Dash application that uses data mining algorithms (KMeans, DBscan clustering) to analyses the whole space of answer sets, identifies the inner patterns, and helps users to find the interesting attributes for further investigation. Online version is available at https://asp-analysis.herokuapp.com/
 
 ## Prerequisites
 
